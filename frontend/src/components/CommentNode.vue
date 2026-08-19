@@ -12,7 +12,7 @@ const emit = defineEmits<{ reply: [comment: CommentItem] }>();
       <strong>{{ comment.author_name }}</strong>
       <time :datetime="comment.created_at">{{ new Date(comment.created_at).toLocaleString() }}</time>
     </header>
-    <p class="comment-text">{{ comment.text }}</p>
+    <div class="comment-text" v-html="comment.html_text" />
     <button class="link-button" type="button" @click="emit('reply', comment)">Reply</button>
     <div v-if="comment.replies.length" class="replies">
       <CommentNode

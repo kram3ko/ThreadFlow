@@ -19,6 +19,7 @@ def test_openapi_schema_documents_current_routes(api_client):
         "/api/auth/me",
         "/api/auth/refresh",
         "/api/auth/register",
+        "/api/captcha",
         "/api/comments",
         "/api/comments/{id}",
         "/api/comments/{id}/replies",

@@ -16,6 +16,8 @@ COMMENT_EXAMPLE = OpenApiExample(
         "email": "alice@example.com",
         "homepage": "https://example.com",
         "text": "Hello, ThreadFlow",
+        "captcha_id": "bd452430-f18d-4f5f-a933-18fc48ed2f2b",
+        "captcha_answer": "A7K9P2",
     },
     request_only=True,
 )

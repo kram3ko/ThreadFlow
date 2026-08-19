@@ -1,4 +1,5 @@
 import pytest
+from apps.captcha.services import issue_challenge
 from django.conf import settings
 from rest_framework.test import APIClient
 
@@ -90,6 +91,7 @@ def test_logout_clears_tokens(csrf_client: APIClient) -> None:
 @pytest.mark.django_db
 def test_authenticated_comment_uses_account_snapshot(csrf_client: APIClient) -> None:
     csrf_client.post("/api/auth/register", registration_payload(), format="json")
+    challenge = issue_challenge(answer="ABC123")
 
     response = csrf_client.post(
         "/api/comments",
@@ -97,6 +99,8 @@ def test_authenticated_comment_uses_account_snapshot(csrf_client: APIClient) -> 
             "username": "Spoofed",
             "email": "spoofed@example.com",
             "text": "Authenticated comment",
+            "captcha_id": str(challenge.id),
+            "captcha_answer": "ABC123",
         },
         format="json",
     )

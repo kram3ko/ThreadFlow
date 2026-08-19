@@ -46,6 +46,8 @@ describe("comments store", () => {
       email: "alice@example.com",
       homepage: "",
       text: "Reply",
+      captcha_id: "captcha-id",
+      captcha_answer: "ABC123",
     };
 
     const created = await store.create(draft, "parent-id");

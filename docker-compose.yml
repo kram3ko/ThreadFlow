@@ -61,11 +61,18 @@ services:
       JWT_REFRESH_ROTATION: ${JWT_REFRESH_ROTATION:-true}
       POSTGRES_CONN_MAX_AGE: ${POSTGRES_CONN_MAX_AGE:-60}
       REDIS_URL: redis://:${REDIS_PASSWORD:-threadflow}@redis:6379/0
+      REDIS_CACHE_PREFIX: ${REDIS_CACHE_PREFIX:-threadflow}
+      CAPTCHA_TTL_SECONDS: ${CAPTCHA_TTL_SECONDS:-300}
+      CAPTCHA_MAX_ATTEMPTS: ${CAPTCHA_MAX_ATTEMPTS:-3}
+      RATE_LIMIT_COMMENT_PER_MINUTE: ${RATE_LIMIT_COMMENT_PER_MINUTE:-10/minute}
+      RATE_LIMIT_NUM_PROXIES: ${RATE_LIMIT_NUM_PROXIES:-1}
       DEMO_USER_NAME: ${DEMO_USER_NAME:-demo}
       DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-demo@threadflow.local}
       DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-demo-password}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - static_data:/app/backend/staticfiles

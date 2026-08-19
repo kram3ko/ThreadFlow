@@ -3,6 +3,7 @@ export interface CommentItem {
   author_name: string;
   author_email: string;
   homepage: string;
+  html_text: string;
   text: string;
   parent_id: string | null;
   root_id: string;
@@ -23,6 +24,14 @@ export interface CommentDraft {
   email: string;
   homepage: string;
   text: string;
+  captcha_id: string;
+  captcha_answer: string;
+}
+
+export interface CaptchaChallenge {
+  id: string;
+  image_data: string;
+  expires_in: number;
 }
 
 export interface AuthUser {

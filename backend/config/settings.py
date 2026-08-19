@@ -50,6 +50,12 @@ JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "threadflow-spa")
 JWT_ACCESS_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRE_MINUTES", "15"))
 JWT_REFRESH_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE_DAYS", "14"))
 JWT_REFRESH_ROTATION = os.getenv("JWT_REFRESH_ROTATION", "true").lower() == "true"
+REDIS_URL = os.getenv("REDIS_URL")
+CAPTCHA_TTL_SECONDS = int(os.getenv("CAPTCHA_TTL_SECONDS", "300"))
+CAPTCHA_MAX_ATTEMPTS = int(os.getenv("CAPTCHA_MAX_ATTEMPTS", "3"))
+COMMENT_RATE_LIMIT = os.getenv("RATE_LIMIT_COMMENT_PER_MINUTE", "10/minute")
+if COMMENT_RATE_LIMIT.isdigit():
+    COMMENT_RATE_LIMIT = f"{COMMENT_RATE_LIMIT}/minute"
 
 INSTALLED_APPS = [
     "django.contrib.auth",
@@ -62,6 +68,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "apps.accounts",
+    "apps.captcha",
     "apps.comments",
 ]
 
@@ -154,6 +161,20 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "EXCEPTION_HANDLER": "config.exceptions.api_exception_handler",
+    "DEFAULT_THROTTLE_RATES": {"comment_create": COMMENT_RATE_LIMIT},
+    "NUM_PROXIES": int(os.getenv("RATE_LIMIT_NUM_PROXIES", "1")),
+}
+
+CACHES = {
+    "default": {
+        "BACKEND": (
+            "django.core.cache.backends.redis.RedisCache"
+            if REDIS_URL
+            else "django.core.cache.backends.locmem.LocMemCache"
+        ),
+        "LOCATION": REDIS_URL or "threadflow-local",
+        "KEY_PREFIX": os.getenv("REDIS_CACHE_PREFIX", "threadflow"),
+    }
 }
 
 SPECTACULAR_SETTINGS = {

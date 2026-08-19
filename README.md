@@ -21,8 +21,11 @@ The foundation milestone is implemented:
 - httpOnly authentication cookies with CSRF protection and refresh rotation;
 - Pinia authentication state without JavaScript-accessible JWTs;
 - automated backend/frontend quality gates in pre-commit and GitHub Actions.
+- Redis-backed CAPTCHA required for every root and reply;
+- Redis-backed write throttling for comment creation;
+- validated and sanitized comment HTML limited to safe formatting tags.
 
-Kafka, Elasticsearch, GraphQL, Prometheus, Channels and object storage are locked dependencies for later milestones. Their application integrations are not implemented yet. Redis is provisioned but is not yet used for CAPTCHA, caching, rate limiting or refresh-token revocation.
+Kafka, Elasticsearch, GraphQL, Prometheus, Channels and object storage are locked dependencies for later milestones. Their application integrations are not implemented yet. Redis currently serves CAPTCHA and comment rate limiting; page caching and refresh-token revocation remain later work.
 
 ## Architecture
 
@@ -114,6 +117,7 @@ Interactive and machine-readable documentation:
 | `POST` | `/api/auth/refresh` | Rotate JWT cookies |
 | `POST` | `/api/auth/logout` | Expire JWT cookies |
 | `GET` | `/api/auth/me` | Return the current user |
+| `GET` | `/api/captcha` | Create a short-lived CAPTCHA challenge |
 | `GET` | `/api/comments` | Cursor-paginated root comments and branches |
 | `POST` | `/api/comments` | Create a root comment |
 | `GET` | `/api/comments/{id}` | Read one branch |
@@ -135,7 +139,9 @@ Guest comment example:
   "username": "Alice1",
   "email": "alice@example.com",
   "homepage": "https://example.com",
-  "text": "Hello, ThreadFlow"
+  "text": "Hello, <strong>ThreadFlow</strong>",
+  "captcha_id": "bd452430-f18d-4f5f-a933-18fc48ed2f2b",
+  "captcha_answer": "A7K9P2"
 }
 ```
 
@@ -201,17 +207,17 @@ Root comments are cursor-paginated. Compound indexes support stable ordering by 
 
 ## Roadmap
 
-1. CAPTCHA, rate limiting and HTML sanitization with `nh3`.
+1. Typed WebSocket transport for live comment commands and events, retaining REST fallback.
 2. image and TXT attachments backed by MinIO/S3-compatible storage.
-3. Django Channels and WebSocket fan-out, with the shared transport selected after load tests.
-4. transactional outbox, Kafka consumers, retry topics and DLQ.
-5. Elasticsearch indexing, fallback and rebuild tooling.
-6. read-only GraphQL with batching and complexity limits.
-7. Prometheus metrics, k6 load profiles and deployment documentation.
+3. transactional outbox, Kafka consumers, retry topics and DLQ feeding WebSocket delivery.
+4. Elasticsearch indexing, fallback and rebuild tooling.
+5. read-only GraphQL with batching and complexity limits.
+6. Prometheus metrics, k6 load profiles and deployment documentation.
+
+The attachment milestone also adds optional account avatars stored in object storage. Guest comments use locally generated initial avatars so visitor email addresses are never sent to an external avatar service. Final visual polish follows the functional milestones and keeps the comment feed compact, avatar-led and focused on live discussion.
 
 ## MVP limitations
 
-- text is not yet accepted as sanitized HTML;
 - refresh-token reuse is not yet tracked server-side;
 - attachments, search and realtime updates are unavailable;
 - large branches are bounded by response depth, but reply pagination is not implemented yet;

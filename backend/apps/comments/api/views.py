@@ -7,6 +7,7 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from apps.comments.api.docs import document_comment_viewset
 from apps.comments.api.pagination import CommentCursorPagination
@@ -47,6 +48,12 @@ class CommentViewSet(
     serializer_class = CommentSerializer
     lookup_value_converter = "uuid"
     queryset = Comment.objects.all()
+    throttle_scope = "comment_create"
+
+    def get_throttles(self) -> list[ScopedRateThrottle]:
+        if self.action not in {"create", "replies"}:
+            return []
+        return [ScopedRateThrottle()]
 
     def list(self, request, *args, **kwargs):
         roots: QuerySet[Comment] = with_reply_marker(
