@@ -55,6 +55,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - static_data:/app/backend/staticfiles
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 10s
@@ -82,7 +84,10 @@ services:
         condition: service_healthy
       frontend:
         condition: service_healthy
+    volumes:
+      - static_data:/srv/static:ro
 
 volumes:
   postgres_data:
   redis_data:
+  static_data:

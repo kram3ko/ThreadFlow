@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.comments.models import Comment
@@ -54,10 +55,11 @@ class CommentSerializer(serializers.ModelSerializer):
             "replies",
         )
 
-    def get_replies(self, obj):
+    @extend_schema_field({"type": "array", "items": {"$ref": "#/components/schemas/Comment"}})
+    def get_replies(self, obj: Comment):
         children = self.context.get("children", {}).get(obj.id, [])
         return CommentSerializer(children, many=True, context=self.context).data
 
-    def get_has_more_replies(self, obj):
+    def get_has_more_replies(self, obj: Comment) -> bool:
         visible_children = self.context.get("children", {}).get(obj.id, [])
         return bool(getattr(obj, "has_replies", False) and not visible_children)
