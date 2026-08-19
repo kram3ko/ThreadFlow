@@ -1,4 +1,5 @@
 from collections import defaultdict
+from typing import cast
 
 from django.db.models import Exists, OuterRef, QuerySet
 from django.shortcuts import get_object_or_404
@@ -51,8 +52,7 @@ class CommentViewSet(
         roots: QuerySet[Comment] = with_reply_marker(
             self.get_queryset().filter(parent__isnull=True).select_related("user")
         )
-        page = self.paginate_queryset(roots)
-        assert page is not None
+        page = cast(list[Comment], self.paginate_queryset(roots))
         root_ids = [comment.id for comment in page]
         descendants = list(
             with_reply_marker(

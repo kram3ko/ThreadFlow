@@ -151,8 +151,15 @@ uv run --group test python backend/manage.py makemigrations --check --dry-run
 uv run --group test python backend/manage.py spectacular --validate
 uv run --group test pytest
 uv run --group lint ruff check backend
+uv run --group lint ruff format --check .
 uv run --group lint pyright
+uv run --group test pytest --cov
+uv run --group security pip-audit
 ```
+
+Install the repository hooks once with `uv run --group lint pre-commit install --install-hooks`.
+Fast lint, format and type checks run before commits; the backend test suite runs before pushes.
+GitHub Actions repeats backend and frontend quality gates for pull requests and protected branches.
 
 Frontend checks:
 
