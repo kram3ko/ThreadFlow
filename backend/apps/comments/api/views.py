@@ -2,14 +2,15 @@ from collections import defaultdict
 
 from django.db.models import Exists, OuterRef, QuerySet
 from django.shortcuts import get_object_or_404
-from rest_framework import status
+from rest_framework import mixins, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
+from apps.comments.api.docs import document_comment_viewset
+from apps.comments.api.pagination import CommentCursorPagination
+from apps.comments.api.serializers import CommentCreateSerializer, CommentSerializer
 from apps.comments.models import Comment
-from apps.comments.pagination import CommentCursorPagination
-from apps.comments.serializers import CommentCreateSerializer, CommentSerializer
 
 
 def serialize_tree(roots, descendants):
@@ -33,49 +34,56 @@ def requested_depth(request):
         return 2
 
 
-class CommentListCreateView(APIView):
+@document_comment_viewset
+class CommentViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
     permission_classes = (AllowAny,)
+    pagination_class = CommentCursorPagination
+    serializer_class = CommentSerializer
+    lookup_value_converter = "uuid"
+    queryset = Comment.objects.all()
 
-    def get(self, request):
+    def list(self, request, *args, **kwargs):
         roots: QuerySet[Comment] = with_reply_marker(
-            Comment.objects.filter(parent__isnull=True).select_related("user")
+            self.get_queryset().filter(parent__isnull=True).select_related("user")
         )
-        paginator = CommentCursorPagination()
-        page = paginator.paginate_queryset(roots, request, view=self)
+        page = self.paginate_queryset(roots)
         assert page is not None
         root_ids = [comment.id for comment in page]
         descendants = list(
             with_reply_marker(
-                Comment.objects.filter(
+                self.get_queryset()
+                .filter(
                     root_id__in=root_ids,
                     parent__isnull=False,
                     depth__lte=requested_depth(request),
-                ).select_related("user")
+                )
+                .select_related("user")
             )
         )
-        return paginator.get_paginated_response(serialize_tree(page, descendants))
+        return self.get_paginated_response(serialize_tree(page, descendants))
 
-    def post(self, request):
+    def create(self, request, *args, **kwargs):
         serializer = CommentCreateSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         comment = serializer.save()
         return Response(CommentSerializer(comment).data, status=status.HTTP_201_CREATED)
 
-
-class CommentDetailView(APIView):
-    permission_classes = (AllowAny,)
-
-    def get(self, request, comment_id):
+    def retrieve(self, request, *args, **kwargs):
         comment = get_object_or_404(
-            with_reply_marker(Comment.objects.select_related("user")), id=comment_id
+            with_reply_marker(self.get_queryset().select_related("user")),
+            id=kwargs["pk"],
         )
         root_id = comment.root_id or comment.id
         branch = list(
             with_reply_marker(
-                Comment.objects.filter(
-                    root_id=root_id,
-                    depth__lte=requested_depth(request),
-                ).select_related("user")
+                self.get_queryset()
+                .filter(root_id=root_id, depth__lte=requested_depth(request))
+                .select_related("user")
             )
         )
         by_id = {item.id: item for item in branch}
@@ -83,12 +91,12 @@ class CommentDetailView(APIView):
         descendants = [item for item in branch if item.parent_id is not None]
         return Response(serialize_tree([root], descendants)[0])
 
-
-class CommentReplyCreateView(APIView):
-    permission_classes = (AllowAny,)
-
-    def post(self, request, comment_id):
-        parent = get_object_or_404(Comment.objects.select_related("root"), id=comment_id)
+    @action(detail=True, methods=["post"], url_path="replies")
+    def replies(self, request, *args, **kwargs):
+        parent = get_object_or_404(
+            self.get_queryset().select_related("root"),
+            id=kwargs["pk"],
+        )
         serializer = CommentCreateSerializer(
             data=request.data,
             context={"request": request, "parent": parent},

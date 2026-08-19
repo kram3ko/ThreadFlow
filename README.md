@@ -52,7 +52,7 @@ Current request path: `Browser → Nginx → Vue/Django → PostgreSQL`. Dashed 
 backend/          Django project, applications, migrations and tests
 frontend/         Vue SPA
 docker/           Backend, frontend and Nginx container definitions
-docs/             Architecture and operational docs added by later milestones
+docs/api/         Human-readable REST contracts and usage notes
 load-tests/       k6 scenarios added after search and WebSocket implementation
 docker-compose.yml
 pyproject.toml
@@ -93,6 +93,13 @@ docker compose --env-file .env down
 | `DEMO_USER_*` | Optional local demo-user bootstrap |
 
 ## REST API
+
+Interactive and machine-readable documentation:
+
+- Swagger UI: `http://localhost:8080/api/docs`;
+- ReDoc: `http://localhost:8080/api/redoc`;
+- OpenAPI schema: `http://localhost:8080/api/schema`;
+- human-readable API index: [`docs/api/README.md`](docs/api/README.md).
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -141,6 +148,7 @@ Python dependencies are managed with `uv`; pip requirements files are not used.
 uv sync --group test --group lint
 uv run --group test python backend/manage.py check
 uv run --group test python backend/manage.py makemigrations --check --dry-run
+uv run --group test python backend/manage.py spectacular --validate
 uv run --group test pytest
 uv run --group lint ruff check backend
 uv run --group lint pyright

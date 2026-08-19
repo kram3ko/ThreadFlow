@@ -1,19 +1,9 @@
-from apps.comments.views import (
-    CommentDetailView,
-    CommentListCreateView,
-    CommentReplyCreateView,
-)
-from django.urls import path
-
-from config.views import health
+from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
 urlpatterns = [
-    path("api/health", health, name="health"),
-    path("api/comments", CommentListCreateView.as_view(), name="comment-list-create"),
-    path("api/comments/<uuid:comment_id>", CommentDetailView.as_view(), name="comment-detail"),
-    path(
-        "api/comments/<uuid:comment_id>/replies",
-        CommentReplyCreateView.as_view(),
-        name="comment-reply",
-    ),
+    path("api/schema", SpectacularAPIView.as_view(), name="api-schema"),
+    path("api/docs", SpectacularSwaggerView.as_view(url_name="api-schema"), name="api-docs"),
+    path("api/redoc", SpectacularRedocView.as_view(url_name="api-schema"), name="api-redoc"),
+    path("api/", include("apps.api_urls")),
 ]

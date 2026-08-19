@@ -8,6 +8,7 @@ dependencies = [
     # Web, API and ASGI
     "django>=6.1",
     "djangorestframework>=3.18",
+    "drf-spectacular>=0.30.0,<0.31",
     "channels>=4.3.2,<5",
     "django-cors-headers>=4.9.0,<5",
     "gunicorn>=26.0.0",
