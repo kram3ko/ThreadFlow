@@ -669,6 +669,23 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c3/56/74dd7b45bbde6d24494220b98d6961cb1200b63a1800332b430daa2c4551/drf_spectacular-0.30.0-py3-none-any.whl", hash = "sha256:006cf5921ebe20a9bd24f7c846261ebbf78780be5961b0d6e87afaa82afd62ff", size = 111150, upload-time = "2026-07-06T11:29:45.12Z" },
 ]
 
+[package.optional-dependencies]
+sidecar = [
+    { name = "drf-spectacular-sidecar" },
+]
+
+[[package]]
+name = "drf-spectacular-sidecar"
+version = "2026.8.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/28/82/eb18e2108b8ceaa50a01d2cdb35ab5ce198c18f062448b2d29d6e89aabeb/drf_spectacular_sidecar-2026.8.1.tar.gz", hash = "sha256:9d9ee678e5ec70cdda2c7ed95cafcdb6141664dc3e11def8a8599c8ad36cf6f5", size = 2603635, upload-time = "2026-08-01T12:09:03.088Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3e/5b/5ea443b8c24b4a4815a6467a158c4511dfe8bed83f8861a27bdb29c4fc47/drf_spectacular_sidecar-2026.8.1-py3-none-any.whl", hash = "sha256:6b8784d3e8c6bd9aa740b14e874640697ab1bc67f5232d74fdd9ef84eaea6bc3", size = 2626283, upload-time = "2026-08-01T12:09:01.705Z" },
+]
+
 [[package]]
 name = "elastic-transport"
 version = "9.4.2"
@@ -1708,7 +1725,7 @@ dependencies = [
     { name = "django-cors-headers" },
     { name = "django-storages", extra = ["s3"] },
     { name = "djangorestframework" },
-    { name = "drf-spectacular" },
+    { name = "drf-spectacular", extra = ["sidecar"] },
     { name = "elasticsearch", extra = ["async"] },
     { name = "gunicorn" },
     { name = "nh3" },
@@ -1753,7 +1770,7 @@ requires-dist = [
     { name = "django-cors-headers", specifier = ">=4.9.0,<5" },
     { name = "django-storages", extras = ["s3"], specifier = ">=1.14.6,<2" },
     { name = "djangorestframework", specifier = ">=3.18" },
-    { name = "drf-spectacular", specifier = ">=0.30.0,<0.31" },
+    { name = "drf-spectacular", extras = ["sidecar"], specifier = ">=0.30.0,<0.31" },
     { name = "elasticsearch", extras = ["async"], specifier = ">=9.2.0,<10" },
     { name = "gunicorn", specifier = ">=26.0.0" },
     { name = "nh3", specifier = ">=0.3.2,<0.4" },

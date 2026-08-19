@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "drf_spectacular",
+    "drf_spectacular_sidecar",
     "apps.accounts",
     "apps.comments",
 ]
@@ -133,4 +134,7 @@ SPECTACULAR_SETTINGS = {
     "VERSION": os.getenv("APP_VERSION", "0.1.0"),
     "SERVE_INCLUDE_SCHEMA": False,
     "SCHEMA_PATH_PREFIX": r"/api",
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "REDOC_DIST": "SIDECAR",
 }

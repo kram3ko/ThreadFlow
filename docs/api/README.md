@@ -10,6 +10,8 @@ This directory explains API behavior that is broader than a single schema field.
 | `/api/docs` | Swagger UI | Interactive API explorer |
 | `/api/redoc` | ReDoc | Readable API reference |
 
+Swagger and ReDoc assets are bundled locally and served by Nginx from the shared static volume. The documentation does not require a third-party CDN and remains compatible with the application CSP.
+
 ## Resources
 
 - [Comments](comments.md) — tree representation, pagination, sorting and reply behavior.
