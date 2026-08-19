@@ -1,0 +1,91 @@
+[project]
+name = "threadflow"
+version = "0.1.0"
+description = "Scalable event-driven platform for threaded comments"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    # Web, API and ASGI
+    "django>=6.1",
+    "djangorestframework>=3.18",
+    "channels>=4.3.2,<5",
+    "django-cors-headers>=4.9.0,<5",
+    "gunicorn>=26.0.0",
+    "uvicorn[standard]>=0.47.0",
+    # Settings, serialization and validation
+    "python-dotenv>=1.2.2",
+    "orjson>=3.11.9",
+    # PostgreSQL and Redis
+    "psycopg[binary]>=3.3.4,<3.4",
+    "redis[hiredis]>=8.1",
+    # Authentication and security
+    "PyJWT[crypto]>=2.13.0,<3",
+    "argon2-cffi>=25.1.0",
+    "nh3>=0.3.2,<0.4",
+    # Files and S3-compatible object storage
+    "Pillow>=12.1.0",
+    "puremagic>=2.2.0",
+    "django-storages[s3]>=1.14.6,<2",
+    # Kafka and Elasticsearch
+    "confluent-kafka>=2.12.2,<3",
+    "elasticsearch[async]>=9.2.0,<10",
+    # Read-only GraphQL API
+    "strawberry-graphql-django>=0.87.0,<0.88",
+    # Logging, metrics and error reporting
+    "structlog>=25.5.0",
+    "prometheus-client>=0.26.0,<0.27",
+    "sentry-sdk[django]>=2.60.0",
+]
+
+[dependency-groups]
+lint = [
+    "ruff>=0.15.14",
+    "pyright[nodejs]>=1.1.409",
+    "django-stubs>=5.2.9",
+    "djangorestframework-stubs>=3.16.8",
+    "pre-commit>=4.6.0",
+]
+test = [
+    "pytest>=9.0.3",
+    "pytest-django>=4.14.0",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "factory-boy>=3.3.3",
+    "freezegun>=1.5.5",
+    "testcontainers[elasticsearch,kafka,postgres,redis]>=4.14.2",
+]
+
+[tool.uv]
+package = false
+default-groups = []
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]
+addopts = ["--strict-config", "--strict-markers"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+extend-exclude = ["backend/**/migrations/*.py", ".venv"]
+
+[tool.ruff.lint]
+# E/F/W — Python correctness; I — imports; N — naming; UP — modern Python.
+# B/SIM/RET — likely bugs and needless control flow; DJ — Django-specific mistakes.
+# RUF/PLE/PLW — Ruff and Pylint correctness checks with a strong signal-to-noise ratio.
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RET", "RUF", "PLE", "PLW", "DJ"]
+# Project text may legitimately contain mixed Latin and Cyrillic characters.
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pyright]
+include = ["backend"]
+exclude = ["backend/**/migrations", ".venv", "**/__pycache__"]
+pythonVersion = "3.14"
+typeCheckingMode = "basic"
+reportMissingTypeStubs = false
+reportUnusedImport = "warning"
+reportUnusedVariable = "warning"

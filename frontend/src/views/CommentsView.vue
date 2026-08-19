@@ -1,0 +1,65 @@
+<script setup lang="ts">
+import { onMounted, ref } from "vue";
+
+import CommentForm from "../components/CommentForm.vue";
+import CommentNode from "../components/CommentNode.vue";
+import { useCommentsStore } from "../stores/comments";
+import type { CommentItem } from "../types";
+
+const store = useCommentsStore();
+const sort = ref("date");
+const direction = ref("desc");
+const replyTo = ref<CommentItem | null>(null);
+
+function reload() {
+  return store.load(sort.value, direction.value);
+}
+
+onMounted(reload);
+</script>
+
+<template>
+  <main class="page-shell">
+    <header class="hero">
+      <span class="eyebrow">Threaded conversations</span>
+      <h1>ThreadFlow</h1>
+      <p>Focused discussions that keep their context.</p>
+    </header>
+
+    <CommentForm
+      :submit="store.create"
+      :parent="replyTo"
+      @submitted="replyTo = null"
+      @cancel="replyTo = null"
+    />
+
+    <section class="feed">
+      <div class="feed-toolbar">
+        <h2>Comments</h2>
+        <div class="sort-controls">
+          <select v-model="sort" aria-label="Sort field" @change="reload">
+            <option value="date">Date</option>
+            <option value="name">Name</option>
+            <option value="email">Email</option>
+          </select>
+          <select v-model="direction" aria-label="Sort direction" @change="reload">
+            <option value="desc">Descending</option>
+            <option value="asc">Ascending</option>
+          </select>
+        </div>
+      </div>
+
+      <p v-if="store.error" class="error">{{ store.error }}</p>
+      <p v-if="store.loading">Loading…</p>
+      <p v-else-if="!store.comments.length" class="empty">No comments yet. Start the thread.</p>
+      <template v-else>
+        <CommentNode
+          v-for="comment in store.comments"
+          :key="comment.id"
+          :comment="comment"
+          @reply="replyTo = $event"
+        />
+      </template>
+    </section>
+  </main>
+</template>
