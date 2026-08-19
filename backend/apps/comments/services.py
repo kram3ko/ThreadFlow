@@ -5,6 +5,7 @@ from django.db import transaction
 
 from apps.comments.html import sanitize_comment_html
 from apps.comments.models import Comment
+from apps.comments.realtime.publisher import publish_comment_created
 
 
 @transaction.atomic
@@ -38,4 +39,5 @@ def create_comment(
     if parent is None:
         comment.root_id = comment_id
     comment.save()
+    transaction.on_commit(lambda: publish_comment_created(comment))
     return comment

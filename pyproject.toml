@@ -10,6 +10,7 @@ dependencies = [
     "djangorestframework>=3.18",
     "drf-spectacular[sidecar]>=0.30.0,<0.31",
     "channels>=4.3.2,<5",
+    "channels-redis>=4.3.0,<5",
     "django-cors-headers>=4.9.0,<5",
     "gunicorn>=26.0.0",
     "uvicorn[standard]>=0.47.0",

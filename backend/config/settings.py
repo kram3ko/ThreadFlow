@@ -53,9 +53,8 @@ JWT_REFRESH_ROTATION = os.getenv("JWT_REFRESH_ROTATION", "true").lower() == "tru
 REDIS_URL = os.getenv("REDIS_URL")
 CAPTCHA_TTL_SECONDS = int(os.getenv("CAPTCHA_TTL_SECONDS", "300"))
 CAPTCHA_MAX_ATTEMPTS = int(os.getenv("CAPTCHA_MAX_ATTEMPTS", "3"))
-COMMENT_RATE_LIMIT = os.getenv("RATE_LIMIT_COMMENT_PER_MINUTE", "10/minute")
-if COMMENT_RATE_LIMIT.isdigit():
-    COMMENT_RATE_LIMIT = f"{COMMENT_RATE_LIMIT}/minute"
+COMMENT_RATE_LIMIT = os.getenv("RATE_LIMIT_COMMENT_PER_MINUTE", "10")
+COMMENT_RATE_LIMIT_PER_MINUTE = int(COMMENT_RATE_LIMIT.split("/", maxsplit=1)[0])
 
 INSTALLED_APPS = [
     "django.contrib.auth",
@@ -161,7 +160,6 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "EXCEPTION_HANDLER": "config.exceptions.api_exception_handler",
-    "DEFAULT_THROTTLE_RATES": {"comment_create": COMMENT_RATE_LIMIT},
     "NUM_PROXIES": int(os.getenv("RATE_LIMIT_NUM_PROXIES", "1")),
 }
 
@@ -174,6 +172,27 @@ CACHES = {
         ),
         "LOCATION": REDIS_URL or "threadflow-local",
         "KEY_PREFIX": os.getenv("REDIS_CACHE_PREFIX", "threadflow"),
+    }
+}
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": (
+            "channels_redis.core.RedisChannelLayer"
+            if REDIS_URL
+            else "channels.layers.InMemoryChannelLayer"
+        ),
+        **(
+            {
+                "CONFIG": {
+                    "hosts": [REDIS_URL],
+                    "capacity": int(os.getenv("WS_CHANNEL_CAPACITY", "1000")),
+                    "expiry": int(os.getenv("WS_EVENT_EXPIRY_SECONDS", "60")),
+                }
+            }
+            if REDIS_URL
+            else {}
+        ),
     }
 }
 

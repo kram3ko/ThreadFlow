@@ -24,8 +24,12 @@ The foundation milestone is implemented:
 - Redis-backed CAPTCHA required for every root and reply;
 - Redis-backed write throttling for comment creation;
 - validated and sanitized comment HTML limited to safe formatting tags.
+- typed WebSocket commands and live `comment.created` delivery through Redis;
+- automatic reconnect, REST resynchronization and REST write fallback;
+- compact modal authentication and deterministic guest avatars;
+- persisted `Auto`, light and dark color themes.
 
-Kafka, Elasticsearch, GraphQL, Prometheus, Channels and object storage are locked dependencies for later milestones. Their application integrations are not implemented yet. Redis currently serves CAPTCHA and comment rate limiting; page caching and refresh-token revocation remain later work.
+Kafka, Elasticsearch, GraphQL, Prometheus and object storage are locked dependencies for later milestones. Their application integrations are not implemented yet. Redis currently serves CAPTCHA, comment rate limiting and the Channels layer; page caching and refresh-token revocation remain later work.
 
 ## Architecture
 
@@ -35,13 +39,15 @@ flowchart LR
     Nginx --> Vue
     Nginx --> Django
     Django --> PostgreSQL
-    Django -. CAPTCHA / cache / limits .-> Redis
+    Django --> Redis
+    Redis --> WebSocket
+    WebSocket --> Browser
     Django -. outbox .-> Kafka
     Kafka -. consumers .-> Elasticsearch
     Kafka -. events .-> WebSocket
 ```
 
-Current request path: `Browser → Nginx → Vue/Django → PostgreSQL`. Dashed integrations belong to later milestones.
+Current command paths are `Browser → Nginx → REST/WebSocket → Django → PostgreSQL`. Redis stores ephemeral CAPTCHA/rate-limit state and fans committed comments out to connected browsers. Dashed Kafka and Elasticsearch integrations belong to later milestones.
 
 ## Technology choices
 
@@ -50,7 +56,8 @@ Current request path: `Browser → Nginx → Vue/Django → PostgreSQL`. Dashed 
 - PostgreSQL stores authoritative relational data.
 - Redis Server 8.10 is reserved for ephemeral data and coordination, never primary comments.
 - `uv` owns Python dependency resolution and the committed lockfile.
-- Uvicorn serves Django ASGI so WebSocket support can be introduced without replacing the runtime.
+- Uvicorn serves Django ASGI for both HTTP and WebSocket traffic.
+- Channels with a Redis channel layer provides public live comment delivery and reconnect-safe REST resynchronization.
 - Nginx exposes one public endpoint and routes `/api/` to Django.
 
 ## Repository layout
@@ -60,6 +67,7 @@ backend/          Django project, applications, migrations and tests
 frontend/         Vue SPA
 docker/           Backend, frontend and Nginx container definitions
 docs/api/         Human-readable REST contracts and usage notes
+docs/realtime/    WebSocket operations, event registry and delivery semantics
 load-tests/       k6 scenarios added after search and WebSocket implementation
 docker-compose.yml
 pyproject.toml
@@ -122,6 +130,8 @@ Interactive and machine-readable documentation:
 | `POST` | `/api/comments` | Create a root comment |
 | `GET` | `/api/comments/{id}` | Read one branch |
 | `POST` | `/api/comments/{id}/replies` | Reply to a comment |
+
+Live comment commands and events use `ws://localhost:8080/ws/comments`; see [`docs/realtime/websocket.md`](docs/realtime/websocket.md) for the typed contract and event registry.
 
 List parameters:
 
@@ -207,18 +217,18 @@ Root comments are cursor-paginated. Compound indexes support stable ordering by 
 
 ## Roadmap
 
-1. Typed WebSocket transport for live comment commands and events, retaining REST fallback.
-2. image and TXT attachments backed by MinIO/S3-compatible storage.
-3. transactional outbox, Kafka consumers, retry topics and DLQ feeding WebSocket delivery.
-4. Elasticsearch indexing, fallback and rebuild tooling.
-5. read-only GraphQL with batching and complexity limits.
-6. Prometheus metrics, k6 load profiles and deployment documentation.
+1. image and TXT attachments plus optional account avatars backed by MinIO/S3-compatible storage.
+2. transactional outbox, Kafka consumers, retry topics and DLQ feeding WebSocket delivery.
+3. Elasticsearch indexing, fallback and rebuild tooling.
+4. read-only GraphQL with batching and complexity limits.
+5. Prometheus metrics, k6 load profiles and deployment documentation.
 
 The attachment milestone also adds optional account avatars stored in object storage. Guest comments use locally generated initial avatars so visitor email addresses are never sent to an external avatar service. Final visual polish follows the functional milestones and keeps the comment feed compact, avatar-led and focused on live discussion.
 
 ## MVP limitations
 
 - refresh-token reuse is not yet tracked server-side;
-- attachments, search and realtime updates are unavailable;
+- live delivery is best-effort until the transactional outbox and Kafka publisher land;
+- attachments and search are unavailable;
 - large branches are bounded by response depth, but reply pagination is not implemented yet;
 - production deployment and load-test results are not available yet.

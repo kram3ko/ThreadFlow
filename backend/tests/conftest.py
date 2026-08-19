@@ -1,6 +1,5 @@
 import pytest
 from django.core.cache import caches
-from rest_framework.throttling import ScopedRateThrottle
 
 
 @pytest.fixture(autouse=True)
@@ -11,5 +10,4 @@ def isolated_cache(settings) -> None:
             "LOCATION": "threadflow-tests",
         }
     }
-    ScopedRateThrottle.cache = caches["default"]
-    ScopedRateThrottle.cache.clear()
+    caches["default"].clear()

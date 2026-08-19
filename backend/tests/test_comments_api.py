@@ -1,7 +1,6 @@
 import pytest
 from apps.captcha.services import issue_challenge
 from rest_framework.test import APIClient
-from rest_framework.throttling import ScopedRateThrottle
 
 
 @pytest.fixture
@@ -109,8 +108,8 @@ def test_captcha_is_required_and_consumed(api_client):
 
 
 @pytest.mark.django_db
-def test_comment_writes_are_rate_limited(api_client, monkeypatch):
-    monkeypatch.setitem(ScopedRateThrottle.THROTTLE_RATES, "comment_create", "2/minute")
+def test_comment_writes_are_rate_limited(api_client, settings):
+    settings.COMMENT_RATE_LIMIT_PER_MINUTE = 2
 
     responses = [
         api_client.post(
