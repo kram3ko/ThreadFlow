@@ -17,8 +17,6 @@ API_DOCS_CSP = {
 swagger_view = csp_override(API_DOCS_CSP)(
     SpectacularSwaggerSplitView.as_view(url_name="api-schema")
 )
-redoc_view = csp_override(API_DOCS_CSP)(
-    SpectacularRedocView.as_view(url_name="api-schema")
-)
+redoc_view = csp_override(API_DOCS_CSP)(SpectacularRedocView.as_view(url_name="api-schema"))
 
 __all__ = ["redoc_view", "swagger_view"]

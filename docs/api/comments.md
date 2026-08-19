@@ -38,11 +38,11 @@ The UUID is the deterministic tie-breaker for every cursor ordering. Clients mus
 
 ## Guest identity
 
-Until JWT authentication is implemented, `username` and `email` are required for every created comment. `homepage` is optional. Registered users will later receive author values from their account rather than request data.
+Guest requests must provide `username` and `email`. Authenticated requests derive both values from the account snapshot. `homepage` is optional. Every request must also provide a fresh `captcha_id` and `captcha_answer` from `GET /api/captcha`.
 
 ## Text safety
 
-The foundation milestone escapes all submitted text before exposing `html_text`. The later sanitization milestone will allow only the documented subset of HTML using `nh3`. Vue must render only backend-sanitized HTML.
+Comment HTML is restricted to `<a href="" title="">`, `<code>`, `<i>` and `<strong>`. Allowed formatting tags must be balanced; unsafe elements, attributes and URL schemes are removed with `nh3` before storage. Links receive `rel="nofollow noopener noreferrer"`. Vue renders only the backend-produced `html_text` field.
 
 ## Error format
 

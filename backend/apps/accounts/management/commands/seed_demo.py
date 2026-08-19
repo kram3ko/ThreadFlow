@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from django.core.management.base import BaseCommand
 
@@ -8,7 +9,7 @@ from apps.accounts.models import User
 class Command(BaseCommand):
     help = "Create or update the local demo user"
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         password = os.getenv("DEMO_USER_PASSWORD")
         if not password:
             self.stdout.write("DEMO_USER_PASSWORD is not set; demo user was not created")

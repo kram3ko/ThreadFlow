@@ -10,6 +10,7 @@ dependencies = [
     "djangorestframework>=3.18",
     "drf-spectacular[sidecar]>=0.30.0,<0.31",
     "channels>=4.3.2,<5",
+    "channels-redis>=4.3.0,<5",
     "django-cors-headers>=4.9.0,<5",
     "gunicorn>=26.0.0",
     "uvicorn[standard]>=0.47.0",
@@ -55,6 +56,9 @@ test = [
     "freezegun>=1.5.5",
     "testcontainers[elasticsearch,kafka,postgres,redis]>=4.14.2",
 ]
+security = [
+    "pip-audit>=2.9.0",
+]
 
 [tool.uv]
 package = false
@@ -75,9 +79,15 @@ extend-exclude = ["backend/**/migrations/*.py", ".venv"]
 # E/F/W — Python correctness; I — imports; N — naming; UP — modern Python.
 # B/SIM/RET — likely bugs and needless control flow; DJ — Django-specific mistakes.
 # RUF/PLE/PLW — Ruff and Pylint correctness checks with a strong signal-to-noise ratio.
-select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RET", "RUF", "PLE", "PLW", "DJ"]
+select = ["E", "F", "W", "I", "N", "UP", "B", "S", "SIM", "RET", "RUF", "PLE", "PLW", "DJ"]
 # Project text may legitimately contain mixed Latin and Cyrillic characters.
 ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+# Django requires a development fallback before environment loading; deployed environments override it.
+"backend/config/settings.py" = ["S105"]
+# Assertions are the native pytest API.
+"backend/tests/**/*.py" = ["S101"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -90,3 +100,13 @@ typeCheckingMode = "basic"
 reportMissingTypeStubs = false
 reportUnusedImport = "warning"
 reportUnusedVariable = "warning"
+
+[tool.coverage.run]
+branch = true
+source = ["backend/apps", "backend/config"]
+omit = ["*/migrations/*", "*/management/commands/*", "*/asgi.py", "*/wsgi.py"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true

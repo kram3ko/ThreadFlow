@@ -1,6 +1,19 @@
 from drf_spectacular.utils import OpenApiExample, extend_schema, inline_serializer
 from rest_framework import serializers
 
+ERROR_RESPONSE = inline_serializer(
+    name="ApiErrorEnvelope",
+    fields={
+        "error": inline_serializer(
+            name="ApiError",
+            fields={
+                "code": serializers.CharField(),
+                "details": serializers.JSONField(),
+            },
+        )
+    },
+)
+
 HEALTH_RESPONSE = inline_serializer(
     name="HealthResponse",
     fields={"status": serializers.CharField()},
@@ -20,3 +33,5 @@ document_health = extend_schema(
     ],
     tags=["system"],
 )
+
+__all__ = ["ERROR_RESPONSE", "document_health"]

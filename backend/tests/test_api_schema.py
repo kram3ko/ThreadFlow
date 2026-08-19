@@ -13,6 +13,13 @@ def test_openapi_schema_documents_current_routes(api_client):
     assert response.status_code == 200
     paths = response.json()["paths"]
     assert set(paths) == {
+        "/api/auth/csrf",
+        "/api/auth/login",
+        "/api/auth/logout",
+        "/api/auth/me",
+        "/api/auth/refresh",
+        "/api/auth/register",
+        "/api/captcha",
         "/api/comments",
         "/api/comments/{id}",
         "/api/comments/{id}/replies",

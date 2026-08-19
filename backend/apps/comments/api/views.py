@@ -1,4 +1,5 @@
 from collections import defaultdict
+from typing import cast
 
 from django.db.models import Exists, OuterRef, QuerySet
 from django.shortcuts import get_object_or_404
@@ -11,6 +12,7 @@ from apps.comments.api.docs import document_comment_viewset
 from apps.comments.api.pagination import CommentCursorPagination
 from apps.comments.api.serializers import CommentCreateSerializer, CommentSerializer
 from apps.comments.models import Comment
+from apps.comments.rate_limit import CommentRateThrottle
 
 
 def serialize_tree(roots, descendants):
@@ -47,12 +49,16 @@ class CommentViewSet(
     lookup_value_converter = "uuid"
     queryset = Comment.objects.all()
 
+    def get_throttles(self) -> list[CommentRateThrottle]:
+        if self.action not in {"create", "replies"}:
+            return []
+        return [CommentRateThrottle()]
+
     def list(self, request, *args, **kwargs):
         roots: QuerySet[Comment] = with_reply_marker(
             self.get_queryset().filter(parent__isnull=True).select_related("user")
         )
-        page = self.paginate_queryset(roots)
-        assert page is not None
+        page = cast(list[Comment], self.paginate_queryset(roots))
         root_ids = [comment.id for comment in page]
         descendants = list(
             with_reply_marker(

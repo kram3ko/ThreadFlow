@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 
+import AuthPanel from "../components/AuthPanel.vue";
 import CommentForm from "../components/CommentForm.vue";
 import CommentNode from "../components/CommentNode.vue";
+import ThemeToggle from "../components/ThemeToggle.vue";
 import { useCommentsStore } from "../stores/comments";
+import { useAuthStore } from "../stores/auth";
 import type { CommentItem } from "../types";
 
 const store = useCommentsStore();
+const auth = useAuthStore();
 const sort = ref("date");
 const direction = ref("desc");
 const replyTo = ref<CommentItem | null>(null);
@@ -15,20 +19,38 @@ function reload() {
   return store.load(sort.value, direction.value);
 }
 
-onMounted(reload);
+onMounted(() => {
+  void auth.initialize();
+  void reload();
+  store.startRealtime();
+});
+
+watch(
+  () => auth.user?.id,
+  (current, previous) => {
+    if (current !== previous && auth.initialized) store.reconnectRealtime();
+  },
+);
 </script>
 
 <template>
   <main class="page-shell">
-    <header class="hero">
-      <span class="eyebrow">Threaded conversations</span>
-      <h1>ThreadFlow</h1>
-      <p>Focused discussions that keep their context.</p>
+    <header class="topbar">
+      <div class="hero">
+        <span class="eyebrow">Threaded conversations</span>
+        <h1>ThreadFlow</h1>
+        <p>Focused discussions that keep their context.</p>
+      </div>
+      <div class="topbar-actions">
+        <ThemeToggle />
+        <AuthPanel />
+      </div>
     </header>
 
     <CommentForm
       :submit="store.create"
       :parent="replyTo"
+      :user="auth.user"
       @submitted="replyTo = null"
       @cancel="replyTo = null"
     />
@@ -36,6 +58,9 @@ onMounted(reload);
     <section class="feed">
       <div class="feed-toolbar">
         <h2>Comments</h2>
+        <span class="connection-state" :class="store.socketStatus">
+          {{ store.socketStatus === "open" ? "Live" : store.socketStatus }}
+        </span>
         <div class="sort-controls">
           <select v-model="sort" aria-label="Sort field" @change="reload">
             <option value="date">Date</option>
@@ -50,6 +75,9 @@ onMounted(reload);
       </div>
 
       <p v-if="store.error" class="error">{{ store.error }}</p>
+      <button v-if="store.pendingRoots" class="new-comments" type="button" @click="reload">
+        {{ store.pendingRoots }} new comments
+      </button>
       <p v-if="store.loading">Loading…</p>
       <p v-else-if="!store.comments.length" class="empty">No comments yet. Start the thread.</p>
       <template v-else>
