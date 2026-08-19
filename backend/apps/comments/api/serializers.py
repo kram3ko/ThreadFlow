@@ -9,6 +9,11 @@ from apps.comments.models import Comment
 from apps.comments.services import create_comment
 
 
+class AttachmentClaimSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    token = serializers.CharField(max_length=64)
+
+
 class CommentCreateSerializer(serializers.Serializer):
     username = serializers.RegexField(r"^[A-Za-z0-9_]+$", max_length=150, required=False)
     email = serializers.EmailField(required=False)
@@ -18,6 +23,7 @@ class CommentCreateSerializer(serializers.Serializer):
     captcha_answer = serializers.RegexField(
         r"^[A-Za-z0-9]+$", max_length=12, write_only=True, trim_whitespace=True
     )
+    attachments = AttachmentClaimSerializer(many=True, required=False)
 
     def validate_text(self, value: str) -> str:
         sanitize_comment_html(value)
@@ -31,6 +37,10 @@ class CommentCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {name: "This field is required for guests." for name in missing}
                 )
+        if len(attrs.get("attachments", [])) > 4:
+            raise serializers.ValidationError(
+                {"attachments": "A comment can contain at most four attachments."}
+            )
         result = verify_challenge(attrs["captcha_id"], attrs["captcha_answer"])
         if result is not CaptchaResult.VALID:
             message = {
@@ -51,6 +61,7 @@ class CommentCreateSerializer(serializers.Serializer):
             homepage=validated_data["homepage"],
             text=validated_data["text"],
             parent=self.context.get("parent"),
+            attachments=validated_data.get("attachments", []),
         )
 
 
@@ -58,6 +69,8 @@ class CommentSerializer(serializers.ModelSerializer):
     text = serializers.CharField(source="search_text", read_only=True)
     replies = serializers.SerializerMethodField()
     has_more_replies = serializers.SerializerMethodField()
+    attachments = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
@@ -74,6 +87,8 @@ class CommentSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "has_more_replies",
+            "avatar_url",
+            "attachments",
             "replies",
         )
 
@@ -85,3 +100,26 @@ class CommentSerializer(serializers.ModelSerializer):
     def get_has_more_replies(self, obj: Comment) -> bool:
         visible_children = self.context.get("children", {}).get(obj.id, [])
         return bool(getattr(obj, "has_replies", False) and not visible_children)
+
+    def get_attachments(self, obj: Comment) -> Any:
+        from apps.attachments.api.serializers import AttachmentSerializer
+
+        return AttachmentSerializer(
+            obj.attachments.all(), many=True, context={"request": self.context.get("request")}
+        ).data
+
+    def get_avatar_url(self, obj: Comment) -> str | None:
+        if not obj.user_id:
+            return None
+        from apps.attachments.models import AttachmentPurpose
+
+        prefetched = getattr(obj.user, "avatars", None)
+        if prefetched is not None:
+            avatar = prefetched[0] if prefetched else None
+        else:
+            avatar = (
+                obj.user.uploads.filter(purpose=AttachmentPurpose.AVATAR)
+                .order_by("-created_at")
+                .first()
+            )
+        return f"/api/attachments/{avatar.id}/content" if avatar else None

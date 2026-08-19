@@ -1,13 +1,14 @@
 from collections import defaultdict
 from typing import cast
 
-from django.db.models import Exists, OuterRef, QuerySet
+from django.db.models import Exists, OuterRef, Prefetch, QuerySet
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from apps.attachments.models import Attachment, AttachmentPurpose
 from apps.comments.api.docs import document_comment_viewset
 from apps.comments.api.pagination import CommentCursorPagination
 from apps.comments.api.serializers import CommentCreateSerializer, CommentSerializer
@@ -27,6 +28,14 @@ def serialize_tree(roots, descendants):
 def with_reply_marker(queryset):
     replies = Comment.objects.filter(parent_id=OuterRef("pk"))
     return queryset.annotate(has_replies=Exists(replies))
+
+
+def with_related_files(queryset):
+    avatars = Attachment.objects.filter(purpose=AttachmentPurpose.AVATAR).order_by("-created_at")
+    return queryset.select_related("user").prefetch_related(
+        "attachments",
+        Prefetch("user__uploads", queryset=avatars, to_attr="avatars"),
+    )
 
 
 def requested_depth(request):
@@ -56,19 +65,19 @@ class CommentViewSet(
 
     def list(self, request, *args, **kwargs):
         roots: QuerySet[Comment] = with_reply_marker(
-            self.get_queryset().filter(parent__isnull=True).select_related("user")
+            with_related_files(self.get_queryset().filter(parent__isnull=True))
         )
         page = cast(list[Comment], self.paginate_queryset(roots))
         root_ids = [comment.id for comment in page]
         descendants = list(
             with_reply_marker(
-                self.get_queryset()
-                .filter(
-                    root_id__in=root_ids,
-                    parent__isnull=False,
-                    depth__lte=requested_depth(request),
+                with_related_files(
+                    self.get_queryset().filter(
+                        root_id__in=root_ids,
+                        parent__isnull=False,
+                        depth__lte=requested_depth(request),
+                    )
                 )
-                .select_related("user")
             )
         )
         return self.get_paginated_response(serialize_tree(page, descendants))
@@ -81,15 +90,15 @@ class CommentViewSet(
 
     def retrieve(self, request, *args, **kwargs):
         comment = get_object_or_404(
-            with_reply_marker(self.get_queryset().select_related("user")),
+            with_reply_marker(with_related_files(self.get_queryset())),
             id=kwargs["pk"],
         )
         root_id = comment.root_id or comment.id
         branch = list(
             with_reply_marker(
-                self.get_queryset()
-                .filter(root_id=root_id, depth__lte=requested_depth(request))
-                .select_related("user")
+                with_related_files(
+                    self.get_queryset().filter(root_id=root_id, depth__lte=requested_depth(request))
+                )
             )
         )
         by_id = {item.id: item for item in branch}

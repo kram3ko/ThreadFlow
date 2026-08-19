@@ -1,5 +1,5 @@
 import uuid
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.conf import settings
 from django.db import models
@@ -10,6 +10,8 @@ class Comment(models.Model):
     if TYPE_CHECKING:
         parent_id: uuid.UUID | None
         root_id: uuid.UUID | None
+        user_id: uuid.UUID | None
+        attachments: Any
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(

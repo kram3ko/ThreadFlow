@@ -4,6 +4,7 @@ import pytest
 from apps.captcha.services import issue_challenge
 from apps.comments.models import Comment
 from apps.comments.realtime.consumer import CommentSocketConsumer
+from apps.events.models import OutboxEvent
 from asgiref.testing import ApplicationCommunicator
 from django.contrib.auth.models import AnonymousUser
 
@@ -30,7 +31,7 @@ async def receive_json(communicator: ApplicationCommunicator) -> dict:
 
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
-async def test_guest_creates_comment_and_receives_live_event():
+async def test_guest_creates_comment_and_records_live_event():
     communicator = ApplicationCommunicator(CommentSocketConsumer.as_asgi(), websocket_scope())
     await communicator.send_input({"type": "websocket.connect"})
     assert (await communicator.receive_output(timeout=1))["type"] == "websocket.accept"
@@ -64,14 +65,13 @@ async def test_guest_creates_comment_and_receives_live_event():
         }
     )
 
-    messages = [await receive_json(communicator), await receive_json(communicator)]
-    response = next(message for message in messages if message["type"] == "response")
-    event = next(message for message in messages if message["type"] == "event")
+    response = await receive_json(communicator)
     assert response["id"] == "request-1"
     assert response["data"]["comment"]["html_text"] == "Live <strong>comment</strong>"
-    assert event["event"] == "comment.created"
-    assert event["data"]["comment"]["id"] == response["data"]["comment"]["id"]
     assert await Comment.objects.filter(id=response["data"]["comment"]["id"]).aexists()
+    assert await OutboxEvent.objects.filter(
+        aggregate_id=response["data"]["comment"]["id"]
+    ).aexists()
 
     await communicator.send_input({"type": "websocket.disconnect", "code": 1000})
     await communicator.wait(timeout=1)

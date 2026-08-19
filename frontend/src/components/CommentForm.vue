@@ -13,6 +13,8 @@ const emit = defineEmits<{ submitted: []; cancel: [] }>();
 const submitting = ref(false);
 const captcha = ref<CaptchaChallenge | null>(null);
 const captchaLoading = ref(false);
+const attachment = ref<File | null>(null);
+const uploadError = ref("");
 const draft = reactive<CommentDraft>({
   username: "",
   email: "",
@@ -36,12 +38,30 @@ async function loadCaptcha() {
 
 async function submit() {
   submitting.value = true;
-  const success = await props.submit({ ...draft }, props.parent?.id);
-  submitting.value = false;
-  await loadCaptcha();
-  if (success) {
-    draft.text = "";
-    emit("submitted");
+  uploadError.value = "";
+  try {
+    const payload: CommentDraft = { ...draft };
+    if (attachment.value) {
+      const form = new FormData();
+      form.append("file", attachment.value);
+      form.append("purpose", "comment");
+      const { data } = await api.post<{ id: string; claim_token: string }>(
+        "/attachments",
+        form,
+      );
+      payload.attachments = [{ id: data.id, token: data.claim_token }];
+    }
+    const success = await props.submit(payload, props.parent?.id);
+    await loadCaptcha();
+    if (success) {
+      draft.text = "";
+      attachment.value = null;
+      emit("submitted");
+    }
+  } catch {
+    uploadError.value = "Unable to upload the attachment.";
+  } finally {
+    submitting.value = false;
   }
 }
 
@@ -55,6 +75,7 @@ onMounted(() => void loadCaptcha());
       <h2>{{ parent ? `Reply to ${parent.author_name}` : "Add comment" }}</h2>
       <button v-if="parent" class="link-button" type="button" @click="emit('cancel')">Cancel</button>
     </div>
+    <p v-if="uploadError" class="error">{{ uploadError }}</p>
     <div class="form-grid">
       <p v-if="user" class="posting-as">Posting as <strong>{{ user.username }}</strong></p>
       <template v-else>
@@ -63,6 +84,14 @@ onMounted(() => void loadCaptcha());
       </template>
       <label class="wide">Homepage <input v-model="draft.homepage" type="url" /></label>
       <label class="wide">Comment <textarea v-model="draft.text" required rows="5" /></label>
+      <label class="wide">
+        Attachment (JPG, PNG, GIF or TXT)
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/gif,text/plain,.txt"
+          @change="attachment = ($event.target as HTMLInputElement).files?.[0] ?? null"
+        />
+      </label>
       <div class="captcha-field wide">
         <img v-if="captcha" :src="captcha.image_data" alt="CAPTCHA challenge" width="190" height="64" />
         <span v-else>{{ captchaLoading ? "Loading CAPTCHA…" : "CAPTCHA unavailable" }}</span>

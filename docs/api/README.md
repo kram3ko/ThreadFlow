@@ -17,9 +17,9 @@ Swagger and ReDoc assets are bundled locally and served by Nginx from the shared
 - [Authentication](authentication.md) — JWT cookies, CSRF and browser session lifecycle.
 - [CAPTCHA](captcha.md) — challenge lifecycle and comment submission fields.
 - [Comments](comments.md) — tree representation, pagination, sorting and reply behavior.
+- [Attachments](attachments.md) — content validation, claim tokens and safe previews.
+- [Search](search.md) — Elasticsearch query behavior and PostgreSQL fallback.
 - Authentication — added with the JWT milestone.
-- Attachments — added with the object-storage milestone.
-- Search — added with the Elasticsearch milestone.
 - GraphQL — added with the read API milestone.
 - [WebSocket](../realtime/websocket.md) — live operations, events and reconnect behavior.
 

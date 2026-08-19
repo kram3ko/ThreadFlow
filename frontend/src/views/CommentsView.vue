@@ -5,6 +5,7 @@ import AuthPanel from "../components/AuthPanel.vue";
 import CommentForm from "../components/CommentForm.vue";
 import CommentNode from "../components/CommentNode.vue";
 import ThemeToggle from "../components/ThemeToggle.vue";
+import SearchPanel from "../components/SearchPanel.vue";
 import { useCommentsStore } from "../stores/comments";
 import { useAuthStore } from "../stores/auth";
 import type { CommentItem } from "../types";
@@ -54,6 +55,8 @@ watch(
       @submitted="replyTo = null"
       @cancel="replyTo = null"
     />
+
+    <SearchPanel />
 
     <section class="feed">
       <div class="feed-toolbar">

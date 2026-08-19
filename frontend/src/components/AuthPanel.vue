@@ -2,6 +2,7 @@
 import { reactive, ref, useTemplateRef } from "vue";
 
 import { useAuthStore } from "../stores/auth";
+import { api } from "../api";
 
 const auth = useAuthStore();
 const mode = ref<"login" | "register">("login");
@@ -28,11 +29,26 @@ async function submit() {
     dialog.value?.close();
   }
 }
+
+async function uploadAvatar(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append("file", file);
+  form.append("purpose", "avatar");
+  await api.post("/attachments", form);
+  const { data } = await api.get("/auth/me");
+  auth.user = data;
+}
 </script>
 
 <template>
   <div v-if="auth.user" class="account-actions auth-session">
-    <span class="avatar" aria-hidden="true">{{ auth.user.username.charAt(0).toUpperCase() }}</span>
+    <label class="avatar-picker" title="Change avatar">
+      <img v-if="auth.user.avatar_url" class="avatar avatar-image" :src="auth.user.avatar_url" alt="" />
+      <span v-else class="avatar" aria-hidden="true">{{ auth.user.username.charAt(0).toUpperCase() }}</span>
+      <input type="file" accept="image/jpeg,image/png,image/gif" @change="uploadAvatar" />
+    </label>
     <strong>{{ auth.user.username }}</strong>
     <button class="link-button" type="button" :disabled="auth.loading" @click="auth.logout">
       Sign out

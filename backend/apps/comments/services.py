@@ -5,7 +5,9 @@ from django.db import transaction
 
 from apps.comments.html import sanitize_comment_html
 from apps.comments.models import Comment
-from apps.comments.realtime.publisher import publish_comment_created
+from apps.comments.realtime.publisher import comment_payload
+from apps.events.contracts import EventType
+from apps.events.models import OutboxEvent
 
 
 @transaction.atomic
@@ -17,6 +19,7 @@ def create_comment(
     homepage: str,
     text: str,
     parent: Comment | None = None,
+    attachments: list[dict[str, Any]] | None = None,
 ) -> Comment:
     comment_id = uuid.uuid4()
     html_text, search_text = sanitize_comment_html(text)
@@ -39,5 +42,17 @@ def create_comment(
     if parent is None:
         comment.root_id = comment_id
     comment.save()
-    transaction.on_commit(lambda: publish_comment_created(comment))
+    if attachments:
+        from apps.attachments.services import claim_attachments
+
+        claim_attachments(claims=attachments, comment=comment, user=user)
+    OutboxEvent.record(
+        event_type=EventType.COMMENT_CREATED,
+        aggregate_id=comment.id,
+        payload={
+            "root_id": str(comment.root_id or comment.id),
+            "kind": "reply" if comment.parent_id else "root",
+            "comment": comment_payload(comment),
+        },
+    )
     return comment

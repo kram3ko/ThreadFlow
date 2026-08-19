@@ -17,6 +17,7 @@ const user: AuthUser = {
   username: "Alice",
   email: "alice@example.com",
   created_at: "2026-08-19T12:00:00Z",
+  avatar_url: null,
 };
 
 describe("auth store", () => {

@@ -71,6 +71,8 @@ describe("comments store", () => {
       depth: 0,
       created_at: "2026-08-19T12:00:00Z",
       has_more_replies: false,
+      avatar_url: null,
+      attachments: [],
       replies: [],
     };
     const reply: CommentItem = {

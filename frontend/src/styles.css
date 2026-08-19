@@ -40,6 +40,9 @@ button, input, textarea, select { font: inherit; }
 .eyebrow { color: var(--warm); font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
 
 .comment-form, .feed { border: 1px solid var(--border); border-radius: 18px; background: var(--surface); box-shadow: 0 14px 40px rgb(38 45 39 / 8%); }
+.search-panel { margin-bottom: 24px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); padding: 16px 24px; }
+.search-form { display: flex; gap: 10px; }
+.search-results { display: grid; gap: 8px; padding-left: 20px; color: var(--muted); }
 .account-actions { display: flex; align-items: center; gap: 12px; padding-top: 8px; white-space: nowrap; }
 .auth-session { justify-content: flex-end; }
 .auth-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
@@ -85,9 +88,19 @@ textarea { resize: vertical; }
 .comment-meta { display: flex; align-items: baseline; gap: 8px; }
 .comment header time { color: #7a857d; font-size: 12px; }
 .avatar { display: inline-flex; flex: 0 0 36px; width: 36px; height: 36px; align-items: center; justify-content: center; border-radius: 50%; background: #1f5d50; color: white; font-weight: 900; }
+.avatar-image { object-fit: cover; }
+.avatar-picker { cursor: pointer; }
+.avatar-picker input { display: none; }
 .comment-text { white-space: pre-wrap; line-height: 1.55; }
 .comment-text a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .comment-text code { border-radius: 5px; background: var(--accent-soft); padding: 2px 5px; }
+.attachments { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+.attachment { border: 0; background: transparent; color: var(--accent); padding: 0; font-size: 13px; font-weight: 700; cursor: pointer; }
+.attachment img { display: block; max-width: 320px; max-height: 240px; border: 1px solid var(--border); border-radius: 10px; }
+.lightbox { max-width: min(92vw, 1100px); border: 0; border-radius: 16px; background: var(--surface); padding: 44px 16px 16px; }
+.lightbox::backdrop { background: rgb(5 10 8 / 78%); }
+.lightbox > img { display: block; max-width: 85vw; max-height: 82vh; }
+.lightbox .dialog-close { position: absolute; top: 8px; right: 14px; }
 .replies { margin: 16px 0 0 20px; padding-left: 20px; border-left: 2px solid #dce6df; }
 .more-replies { color: #6c776f; font-size: 13px; font-style: italic; }
 .error { color: #a4332a; }
