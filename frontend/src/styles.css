@@ -15,13 +15,23 @@ button, input, textarea, select { font: inherit; }
 .hero p { margin: 0; color: #52616b; font-size: 18px; }
 .eyebrow { color: #b14f2d; font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
 
-.comment-form, .feed { border: 1px solid #d7dbd2; border-radius: 18px; background: #fff; box-shadow: 0 14px 40px rgb(38 45 39 / 8%); }
+.comment-form, .feed, .auth-panel { border: 1px solid #d7dbd2; border-radius: 18px; background: #fff; box-shadow: 0 14px 40px rgb(38 45 39 / 8%); }
+.auth-panel { padding: 18px 24px; margin-bottom: 24px; }
+.auth-session, .auth-session > div { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.auth-session > div { align-items: flex-start; flex-direction: column; gap: 2px; }
+.auth-session small { color: #6c776f; }
+.auth-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.auth-tabs button { border: 1px solid #d7dbd2; border-radius: 999px; background: transparent; padding: 7px 13px; cursor: pointer; }
+.auth-tabs button.active { border-color: #1f5d50; background: #e8f1ed; color: #1f5d50; font-weight: 800; }
+.auth-form { display: grid; grid-template-columns: repeat(3, 1fr) auto; align-items: end; gap: 12px; }
+.auth-form label { display: grid; gap: 6px; color: #52616b; font-size: 13px; font-weight: 700; }
 .comment-form { padding: 24px; margin-bottom: 24px; }
 .form-heading, .feed-toolbar, .comment header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .form-heading h2, .feed h2 { margin: 0; font-family: Georgia, serif; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
 .form-grid label { display: grid; gap: 7px; color: #52616b; font-size: 13px; font-weight: 700; }
 .form-grid .wide { grid-column: 1 / -1; }
+.posting-as { grid-column: 1 / -1; margin: 0; color: #52616b; }
 input, textarea, select { width: 100%; border: 1px solid #c9cec5; border-radius: 9px; background: #fbfcfa; padding: 11px 12px; color: #1f2933; }
 textarea { resize: vertical; }
 .primary { border: 0; border-radius: 999px; background: #1f5d50; color: white; padding: 11px 20px; font-weight: 800; cursor: pointer; }
@@ -43,6 +53,7 @@ textarea { resize: vertical; }
 @media (max-width: 620px) {
   .page-shell { padding: 32px 0; }
   .form-grid { grid-template-columns: 1fr; }
+  .auth-form { grid-template-columns: 1fr; }
   .feed-toolbar { align-items: flex-start; flex-direction: column; }
   .sort-controls { width: 100%; }
   .replies { margin-left: 8px; padding-left: 12px; }

@@ -24,3 +24,19 @@ export interface CommentDraft {
   homepage: string;
   text: string;
 }
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  email: string;
+  created_at: string;
+}
+
+export interface LoginDraft {
+  username: string;
+  password: string;
+}
+
+export interface RegisterDraft extends LoginDraft {
+  email: string;
+}

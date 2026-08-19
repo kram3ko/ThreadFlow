@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { reactive, ref } from "vue";
 
-import type { CommentDraft, CommentItem } from "../types";
+import type { AuthUser, CommentDraft, CommentItem } from "../types";
 
 const props = defineProps<{
   parent: CommentItem | null;
+  user: AuthUser | null;
   submit: (draft: CommentDraft, parentId?: string) => Promise<boolean>;
 }>();
 const emit = defineEmits<{ submitted: []; cancel: [] }>();
@@ -30,8 +31,11 @@ async function submit() {
       <button v-if="parent" class="link-button" type="button" @click="emit('cancel')">Cancel</button>
     </div>
     <div class="form-grid">
-      <label>Username <input v-model="draft.username" required pattern="[A-Za-z0-9_]+" /></label>
-      <label>Email <input v-model="draft.email" required type="email" /></label>
+      <p v-if="user" class="posting-as">Posting as <strong>{{ user.username }}</strong></p>
+      <template v-else>
+        <label>Username <input v-model="draft.username" required pattern="[A-Za-z0-9_]+" /></label>
+        <label>Email <input v-model="draft.email" required type="email" /></label>
+      </template>
       <label class="wide">Homepage <input v-model="draft.homepage" type="url" /></label>
       <label class="wide">Comment <textarea v-model="draft.text" required rows="5" /></label>
     </div>

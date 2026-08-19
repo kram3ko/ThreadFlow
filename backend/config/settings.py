@@ -27,6 +27,29 @@ CORS_ALLOWED_ORIGINS = [
     if origin
 ]
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", str(APP_ENV == "production")).lower() == "true"
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "Lax")
+ACCESS_COOKIE_NAME = os.getenv("ACCESS_COOKIE_NAME", "threadflow_access")
+REFRESH_COOKIE_NAME = os.getenv("REFRESH_COOKIE_NAME", "threadflow_refresh")
+CSRF_COOKIE_NAME = os.getenv("CSRF_COOKIE_NAME", "threadflow_csrftoken")
+
+
+def jwt_secret(name: str, development_suffix: str) -> str:
+    value = os.getenv(name)
+    if value:
+        return value
+    if APP_ENV == "production":
+        raise ImproperlyConfigured(f"{name} must be configured in production")
+    return f"{SECRET_KEY}:{development_suffix}"
+
+
+JWT_ACCESS_SECRET = jwt_secret("JWT_ACCESS_SECRET", "access")
+JWT_REFRESH_SECRET = jwt_secret("JWT_REFRESH_SECRET", "refresh")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_ISSUER = os.getenv("JWT_ISSUER", "threadflow")
+JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "threadflow-spa")
+JWT_ACCESS_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRE_MINUTES", "15"))
+JWT_REFRESH_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE_DAYS", "14"))
+JWT_REFRESH_ROTATION = os.getenv("JWT_REFRESH_ROTATION", "true").lower() == "true"
 
 INSTALLED_APPS = [
     "django.contrib.auth",
@@ -114,6 +137,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SESSION_COOKIE_SECURE = COOKIE_SECURE
 CSRF_COOKIE_SECURE = COOKIE_SECURE
+CSRF_COOKIE_SAMESITE = COOKIE_SAMESITE
+CORS_ALLOW_CREDENTIALS = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_CSP = {
     "default-src": [CSP.SELF],
@@ -123,6 +148,9 @@ SECURE_CSP = {
 }
 
 REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "apps.accounts.authentication.CookieJWTAuthentication",
+    ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "EXCEPTION_HANDLER": "config.exceptions.api_exception_handler",

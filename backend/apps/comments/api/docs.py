@@ -1,27 +1,13 @@
+from config.api.docs import ERROR_RESPONSE
 from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiParameter,
     OpenApiResponse,
     extend_schema,
     extend_schema_view,
-    inline_serializer,
 )
-from rest_framework import serializers
 
 from apps.comments.api.serializers import CommentCreateSerializer, CommentSerializer
-
-ERROR_RESPONSE = inline_serializer(
-    name="ApiErrorEnvelope",
-    fields={
-        "error": inline_serializer(
-            name="ApiError",
-            fields={
-                "code": serializers.CharField(),
-                "details": serializers.DictField(),
-            },
-        )
-    },
-)
 
 COMMENT_EXAMPLE = OpenApiExample(
     "Guest comment",

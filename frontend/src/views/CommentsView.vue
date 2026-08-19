@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 
+import AuthPanel from "../components/AuthPanel.vue";
 import CommentForm from "../components/CommentForm.vue";
 import CommentNode from "../components/CommentNode.vue";
 import { useCommentsStore } from "../stores/comments";
+import { useAuthStore } from "../stores/auth";
 import type { CommentItem } from "../types";
 
 const store = useCommentsStore();
+const auth = useAuthStore();
 const sort = ref("date");
 const direction = ref("desc");
 const replyTo = ref<CommentItem | null>(null);
@@ -15,7 +18,10 @@ function reload() {
   return store.load(sort.value, direction.value);
 }
 
-onMounted(reload);
+onMounted(() => {
+  void auth.initialize();
+  void reload();
+});
 </script>
 
 <template>
@@ -26,9 +32,12 @@ onMounted(reload);
       <p>Focused discussions that keep their context.</p>
     </header>
 
+    <AuthPanel />
+
     <CommentForm
       :submit="store.create"
       :parent="replyTo"
+      :user="auth.user"
       @submitted="replyTo = null"
       @cancel="replyTo = null"
     />

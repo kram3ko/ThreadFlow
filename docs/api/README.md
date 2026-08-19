@@ -14,6 +14,7 @@ Swagger and ReDoc assets are bundled locally and served by Nginx from the shared
 
 ## Resources
 
+- [Authentication](authentication.md) — JWT cookies, CSRF and browser session lifecycle.
 - [Comments](comments.md) — tree representation, pagination, sorting and reply behavior.
 - Authentication — added with the JWT milestone.
 - CAPTCHA — added with the abuse-prevention milestone.

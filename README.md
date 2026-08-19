@@ -17,8 +17,12 @@ The foundation milestone is implemented:
 - Docker images for Django, Vue and Nginx;
 - provisioned PostgreSQL 17 and Redis Server 8.10;
 - backend API tests, Ruff and Pyright configuration.
+- JWT registration, login, refresh, logout and current-user flows;
+- httpOnly authentication cookies with CSRF protection and refresh rotation;
+- Pinia authentication state without JavaScript-accessible JWTs;
+- automated backend/frontend quality gates in pre-commit and GitHub Actions.
 
-Kafka, Elasticsearch, GraphQL, Prometheus, Channels, object storage and security libraries are locked dependencies for later milestones. Their application integrations are not implemented yet. Redis is provisioned but is not yet used for CAPTCHA, caching or rate limiting.
+Kafka, Elasticsearch, GraphQL, Prometheus, Channels and object storage are locked dependencies for later milestones. Their application integrations are not implemented yet. Redis is provisioned but is not yet used for CAPTCHA, caching, rate limiting or refresh-token revocation.
 
 ## Architecture
 
@@ -104,6 +108,12 @@ Interactive and machine-readable documentation:
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/health` | Service health |
+| `GET` | `/api/auth/csrf` | Initialize the CSRF cookie |
+| `POST` | `/api/auth/register` | Register and set JWT cookies |
+| `POST` | `/api/auth/login` | Sign in and set JWT cookies |
+| `POST` | `/api/auth/refresh` | Rotate JWT cookies |
+| `POST` | `/api/auth/logout` | Expire JWT cookies |
+| `GET` | `/api/auth/me` | Return the current user |
 | `GET` | `/api/comments` | Cursor-paginated root comments and branches |
 | `POST` | `/api/comments` | Create a root comment |
 | `GET` | `/api/comments/{id}` | Read one branch |
@@ -191,19 +201,18 @@ Root comments are cursor-paginated. Compound indexes support stable ordering by 
 
 ## Roadmap
 
-1. JWT cookies, refresh rotation and CSRF protection.
-2. CAPTCHA, rate limiting and HTML sanitization with `nh3`.
-3. image and TXT attachments backed by MinIO/S3-compatible storage.
-4. Django Channels and WebSocket fan-out, with the shared transport selected after load tests.
-5. transactional outbox, Kafka consumers, retry topics and DLQ.
-6. Elasticsearch indexing, fallback and rebuild tooling.
-7. read-only GraphQL with batching and complexity limits.
-8. Prometheus metrics, k6 load profiles, CI and deployment documentation.
+1. CAPTCHA, rate limiting and HTML sanitization with `nh3`.
+2. image and TXT attachments backed by MinIO/S3-compatible storage.
+3. Django Channels and WebSocket fan-out, with the shared transport selected after load tests.
+4. transactional outbox, Kafka consumers, retry topics and DLQ.
+5. Elasticsearch indexing, fallback and rebuild tooling.
+6. read-only GraphQL with batching and complexity limits.
+7. Prometheus metrics, k6 load profiles and deployment documentation.
 
 ## MVP limitations
 
-- only guest comment flows are exposed by the UI;
 - text is not yet accepted as sanitized HTML;
+- refresh-token reuse is not yet tracked server-side;
 - attachments, search and realtime updates are unavailable;
 - large branches are bounded by response depth, but reply pagination is not implemented yet;
 - production deployment and load-test results are not available yet.
