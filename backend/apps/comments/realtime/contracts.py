@@ -14,6 +14,7 @@ class CommentOperation(StrEnum):
 class CommentEvent(StrEnum):
     CREATED = "comment.created"
     VOTED = "comment.voted"
+    SEARCH_INDEXED = "search.indexed"
 
 
 class CommentKind(StrEnum):

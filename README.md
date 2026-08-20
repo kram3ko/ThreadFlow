@@ -98,7 +98,7 @@ cp .env.example .env
 docker compose --env-file .env up --build
 ```
 
-Replace every `change-me` value before exposing the application outside a local machine. Open `http://localhost:8080`. Startup applies migrations and optionally creates the demo account configured by `DEMO_USER_*`; guest comments do not require authentication.
+The `.env` file is required and is not committed (it is gitignored), so this copy step is mandatory: `.env.example` is the tracked template and Compose reads the resulting `.env` from the project directory. The defaults run locally as-is; replace every `change-me` secret before exposing the application outside a local machine. Open `http://localhost:8080`. Startup applies migrations and optionally creates the demo account configured by `DEMO_USER_*`; guest comments do not require authentication.
 
 Startup also creates Kafka topics, the MinIO bucket and the Elasticsearch index on demand. Stop the stack without deleting persistent volumes:
 
@@ -234,6 +234,10 @@ Root comments are cursor-paginated. Compound indexes support stable ordering by 
 Each comment keeps a denormalized `score`; `CommentVote` records one vote per identity (`user:<pk>` or `guest:<ip>`) so a single voter cannot inflate a comment.
 
 `Attachment` stores object metadata while bytes live in MinIO/S3. `OutboxEvent` is written with the aggregate transaction; `ProcessedEvent` is unique per event and consumer. See [`docs/architecture/events.md`](docs/architecture/events.md).
+
+![Database schema](docs/architecture/db-schema.svg)
+
+Mermaid source: [`docs/architecture/db-schema.mmd`](docs/architecture/db-schema.mmd). Full DDL: [`docs/architecture/schema.sql`](docs/architecture/schema.sql), importable into MySQL Workbench.
 
 ## Git workflow
 

@@ -34,14 +34,14 @@ def _broadcast(envelope: EventEnvelope) -> None:
         event = CommentEvent.CREATED
         data = {"kind": envelope.payload["kind"], "comment": comment_payload(comment)}
     elif envelope.event_type == EventType.SEARCH_INDEXED:
-        event = "search.indexed"
+        event = CommentEvent.SEARCH_INDEXED
         data = envelope.payload
     else:
         return
     async_to_sync(channel_layer.group_send)(
         PUBLIC_COMMENT_GROUP,
         {
-            "type": "comment_created" if event == CommentEvent.CREATED else "search_indexed",
+            "type": event.replace(".", "_"),
             "envelope": {
                 "type": SocketMessageType.EVENT,
                 "event": event,

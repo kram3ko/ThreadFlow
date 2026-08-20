@@ -10,12 +10,10 @@ import puremagic
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import UploadedFile
-from django.db import transaction
 from PIL import Image, UnidentifiedImageError
 from rest_framework import serializers
 
 from apps.attachments.models import Attachment, AttachmentKind, AttachmentPurpose
-from apps.events.models import OutboxEvent
 
 ALLOWED_IMAGE_MIME = {"image/jpeg": "jpg", "image/png": "png", "image/gif": "gif"}
 TEXT_MIME = {"text/plain"}
@@ -95,13 +93,7 @@ def store_upload(*, upload: UploadedFile, user: Any, purpose: str) -> StoredAtta
     )
     attachment.file.save(filename, ContentFile(content), save=False)
     try:
-        with transaction.atomic():
-            attachment.save()
-            OutboxEvent.record(
-                event_type="attachments.uploaded",
-                aggregate_id=attachment.id,
-                payload={"attachment_id": str(attachment.id), "kind": attachment.kind},
-            )
+        attachment.save()
     except Exception:
         attachment.file.delete(save=False)
         raise

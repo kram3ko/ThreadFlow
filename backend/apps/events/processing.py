@@ -11,6 +11,8 @@ from apps.events.kafka import producer, publish_event
 from apps.events.models import ProcessedEvent
 
 logger = logging.getLogger(__name__)
+MAX_RETRY_BACKOFF_STEPS = 6
+ERROR_MAX_CHARS = 1000
 
 
 def process_once(
@@ -41,7 +43,7 @@ def process_with_retry(
             event_type=envelope.event_type,
             aggregate_id=envelope.aggregate_id,
             occurred_at=envelope.occurred_at,
-            payload={**envelope.payload, "error": str(exc)[:1000]},
+            payload={**envelope.payload, "error": str(exc)[:ERROR_MAX_CHARS]},
             attempt=attempt,
             target_consumer=consumer_name,
         )
@@ -51,6 +53,6 @@ def process_with_retry(
             else settings.KAFKA_TOPICS["retry"]
         )
         if topic == settings.KAFKA_TOPICS["retry"]:
-            time.sleep(settings.KAFKA_RETRY_BACKOFF_SECONDS * min(attempt, 6))
+            time.sleep(settings.KAFKA_RETRY_BACKOFF_SECONDS * min(attempt, MAX_RETRY_BACKOFF_STEPS))
         publish_event(producer(), topic=topic, envelope=failed, key=envelope.aggregate_id)
         logger.warning("Event %s sent to %s", envelope.event_id, topic)

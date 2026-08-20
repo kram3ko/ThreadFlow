@@ -13,7 +13,10 @@ APP_ENV = os.getenv("APP_ENV", "development")
 if APP_ENV not in {"development", "production"}:
     raise ImproperlyConfigured("APP_ENV must be development or production")
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "local-only-insecure-secret")
+INSECURE_SECRET_DEFAULT = "local-only-insecure-secret"
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", INSECURE_SECRET_DEFAULT)
+if APP_ENV == "production" and SECRET_KEY == INSECURE_SECRET_DEFAULT:
+    raise ImproperlyConfigured("DJANGO_SECRET_KEY must be configured in production")
 DEBUG = os.getenv("DJANGO_DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = [host for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost").split(",") if host]
 CSRF_TRUSTED_ORIGINS = [
@@ -60,6 +63,8 @@ KAFKA_CLIENT_ID = os.getenv("KAFKA_CLIENT_ID", "threadflow")
 KAFKA_CONSUMER_GROUP_PREFIX = os.getenv("KAFKA_CONSUMER_GROUP_PREFIX", "threadflow")
 KAFKA_RETRY_MAX_ATTEMPTS = int(os.getenv("KAFKA_RETRY_MAX_ATTEMPTS", "5"))
 KAFKA_RETRY_BACKOFF_SECONDS = float(os.getenv("KAFKA_RETRY_BACKOFF_SECONDS", "5"))
+# comments_updated and attachments_uploaded are reserved by the task's topic
+# set; they have no active producer or consumer yet.
 KAFKA_TOPICS = {
     "comments_created": os.getenv("KAFKA_TOPIC_COMMENTS_CREATED", "comments.created"),
     "comments_updated": os.getenv("KAFKA_TOPIC_COMMENTS_UPDATED", "comments.updated"),

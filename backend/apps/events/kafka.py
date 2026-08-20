@@ -7,6 +7,8 @@ from django.conf import settings
 from apps.events.contracts import EventEnvelope
 
 logger = logging.getLogger(__name__)
+FLUSH_TIMEOUT_SECONDS = 10
+POLL_TIMEOUT_SECONDS = 1
 
 
 def producer() -> Producer:
@@ -42,7 +44,7 @@ def publish_event(instance: Producer, *, topic: str, envelope: EventEnvelope, ke
             delivery_error.append(str(error))
 
     instance.produce(topic, key=key.encode(), value=envelope.encode(), on_delivery=delivered)
-    remaining = instance.flush(10)
+    remaining = instance.flush(FLUSH_TIMEOUT_SECONDS)
     if remaining or delivery_error:
         raise KafkaException(delivery_error[0] if delivery_error else "Kafka delivery timed out")
 
@@ -53,7 +55,7 @@ def consume_forever(
     instance = consumer(name=name, topics=topics)
     try:
         while True:
-            message: Message | None = instance.poll(1)
+            message: Message | None = instance.poll(POLL_TIMEOUT_SECONDS)
             if message is None:
                 continue
             error = message.error()
