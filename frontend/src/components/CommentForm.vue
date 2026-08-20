@@ -109,20 +109,25 @@ async function submit() {
       payload.attachments = [claim];
     }
     const success = await props.submit(payload, props.parent?.id);
-    await loadCaptcha();
     if (success) {
       draft.text = "";
       previewing.value = false;
       previewHtml.value = "";
       clearAttachment();
       emit("submitted");
+      if (!props.parent) await loadCaptcha();
+    } else {
+      await loadCaptcha();
     }
   } finally {
     submitting.value = false;
   }
 }
 
-onMounted(() => void loadCaptcha());
+onMounted(() => {
+  void loadCaptcha();
+  if (props.parent) void nextTick(() => commentInput.value?.focus());
+});
 
 </script>
 

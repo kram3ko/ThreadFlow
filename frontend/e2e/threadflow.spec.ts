@@ -10,8 +10,8 @@ const captchaImage =
 
 async function installCaptchaPool(page: Page): Promise<() => CaptchaCredential> {
   const credentials = JSON.parse(process.env.E2E_CAPTCHAS || "[]") as CaptchaCredential[];
-  if (credentials.length < 3) {
-    throw new Error("E2E_CAPTCHAS must contain at least three prepared credentials");
+  if (credentials.length < 6) {
+    throw new Error("E2E_CAPTCHAS must contain at least six prepared credentials");
   }
   let current = credentials[0];
   await page.route("**/api/captcha", async (route) => {
@@ -67,10 +67,12 @@ test("registration, authentication, comments, reply, image and search", async ({
   await expect(root.getByRole("img", { name: "pixel.png" })).toBeVisible();
 
   await root.getByRole("button", { name: "Reply" }).click();
-  await expect(page.getByRole("heading", { name: `Reply to ${username}` })).toBeVisible();
-  await page.locator("textarea").fill(replyText);
-  await page.getByLabel("CAPTCHA", { exact: true }).fill(captcha().answer);
-  await page.getByRole("button", { name: "Send comment" }).click();
+  const replyForm = root.locator("form.inline-reply-form");
+  await expect(replyForm.getByRole("heading", { name: `Reply to ${username}` })).toBeVisible();
+  await expect(replyForm.locator("textarea")).toBeFocused();
+  await replyForm.locator("textarea").fill(replyText);
+  await replyForm.getByLabel("CAPTCHA", { exact: true }).fill(captcha().answer);
+  await replyForm.getByRole("button", { name: "Send comment" }).click();
   await expect(root.getByText(replyText, { exact: true })).toBeVisible();
 
   await page.getByPlaceholder("Search comments and authors…").fill(username);

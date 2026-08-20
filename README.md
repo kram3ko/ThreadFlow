@@ -12,7 +12,7 @@ The release candidate implements:
 - cursor pagination over 25 root comments;
 - root sorting by date, author name or email in both directions;
 - bounded tree responses without N+1 queries;
-- Vue comment form, list and recursive reply UI;
+- Vue comment form, recursive reply UI and focused inline reply composer;
 - PostgreSQL migrations, unified API errors and health check;
 - Docker images for Django, Vue and Nginx;
 - provisioned PostgreSQL 17 and Redis Server 8.10;
@@ -89,10 +89,12 @@ Command paths are `Browser → Nginx → REST/WebSocket → Django → PostgreSQ
 ```text
 backend/          Django project, applications, migrations and tests
 frontend/         Vue SPA
-docker/           Backend, frontend and Nginx container definitions
+docker/           Application, Prometheus, Playwright and k6 images/configuration
 docs/api/         Human-readable REST contracts and usage notes
+docs/architecture/ Database and event-flow diagrams
 docs/realtime/    WebSocket operations, event registry and delivery semantics
-load-tests/       k6 API and WebSocket profiles, preparation and results
+docs/testing/     Measured load-test results
+load-tests/       k6 API and WebSocket profiles and preparation guide
 docker-compose.yml
 pyproject.toml
 uv.lock
@@ -107,11 +109,48 @@ cp .env.example .env
 docker compose --env-file .env up --build
 ```
 
-The `.env` file is required and is not committed (it is gitignored), so this copy step is mandatory: `.env.example` is the tracked template and Compose reads the resulting `.env` from the project directory. The defaults run locally as-is; replace every `change-me` secret before exposing the application outside a local machine. Open `http://localhost:8080`. Startup applies migrations and optionally creates the demo account configured by `DEMO_USER_*`; guest comments do not require authentication.
+Add `-d` to keep the stack in the background. The `.env` file is required and is not committed (it is gitignored), so this copy step is mandatory: `.env.example` is the tracked template and Compose reads the resulting `.env` from the project directory. The defaults run locally as-is; replace every `change-me` secret before exposing the application outside a local machine.
+
+The single Compose command builds the SPA and API, waits for PostgreSQL, Redis, Kafka, Elasticsearch and MinIO, applies migrations, creates Kafka topics and object-storage resources, rebuilds the search index, creates the optional demo account, and starts all consumers plus Prometheus.
 
 The template creates the local demonstration account `demo` / `demo-password`. These credentials are intentionally local-only and must be changed or disabled before exposing the stack.
 
-Startup also creates Kafka topics, the MinIO bucket and the Elasticsearch index on demand. Prometheus is available at `http://localhost:9090`; all web and consumer scrape targets are configured automatically. The MinIO API and console bind to loopback ports `9100` and `9101` by default; application containers use the private `minio:9000` address.
+### Local service map
+
+| What | URL or access | What to inspect |
+| --- | --- | --- |
+| ThreadFlow SPA | `http://localhost:8080` | Comments, auth, themes, live replies, files and search |
+| Swagger UI | `http://localhost:8080/api/docs` | Interactive REST contract |
+| ReDoc | `http://localhost:8080/api/redoc` | Readable REST reference |
+| OpenAPI | `http://localhost:8080/api/schema` | Generated machine-readable schema |
+| GraphQL | `http://localhost:8080/graphql` | Read-only branch queries; no browser IDE is exposed |
+| Prometheus | `http://localhost:9090` | Metrics queries; `/targets` shows the API and three consumers |
+| MinIO console | `http://localhost:9101` | Private attachment bucket; use `MINIO_ROOT_*` credentials |
+| MinIO API | `http://localhost:9100` | Local S3-compatible endpoint |
+| PostgreSQL | `localhost:5433` | Source-of-truth database using `POSTGRES_*` credentials |
+| Redis | `localhost:6380` | Ephemeral cache/channel state using `REDIS_PASSWORD` |
+
+Kafka and Elasticsearch are intentionally private to the Compose network. Inspect them without exposing extra ports:
+
+```bash
+docker compose --env-file .env exec kafka \
+  /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+docker compose --env-file .env exec elasticsearch \
+  curl -s 'http://localhost:9200/threadflow-comments-v1/_search?size=3&pretty'
+```
+
+### What to try
+
+Open the SPA and post as a guest or use `demo` / `demo-password`. CAPTCHA is required for every comment. Registration and sign-in live in the top-right dialog. `Reply` opens a focused form directly below the selected comment; submitted roots, replies and votes appear live through WebSocket events. The editor supports preview and the allowed safe HTML tags, while JPG/PNG/GIF images and UTF-8 TXT files can be attached and previewed safely.
+
+Search demonstrates the Elasticsearch projection and transparently falls back to PostgreSQL when Elasticsearch is unavailable. A compact GraphQL read example is:
+
+```bash
+curl -G http://localhost:8080/graphql \
+  --data-urlencode 'query={ rootComments(first: 3, depth: 2) { id author { name } replies { id text } } }'
+```
+
+In Prometheus, open `/targets` to confirm four healthy scrape targets, then query metrics such as `threadflow_http_requests_total`, `threadflow_comments_created_total`, `threadflow_events_published_total` and `threadflow_events_processed_total`. Kafka topic purposes and delivery guarantees are documented in [`docs/architecture/events.md`](docs/architecture/events.md); GraphQL fields are documented in [`docs/api/graphql.md`](docs/api/graphql.md); the WebSocket command/event registry is in [`docs/realtime/websocket.md`](docs/realtime/websocket.md).
 
 Stop the stack without deleting persistent volumes:
 
@@ -165,7 +204,7 @@ Interactive and machine-readable documentation:
 | `POST` | `/api/comments/{id}/replies` | Reply to a comment |
 | `POST` | `/api/comments/{id}/vote` | Up/down vote a comment (`value` is `1`, `-1` or `0`) |
 | `POST` | `/api/attachments` | Validate and upload an attachment or avatar |
-| `GET` | `/api/attachments/{id}/content` | Safely stream stored content |
+| `GET` | `/api/attachments/{id}/content` | Safely serve stored content |
 | `GET` | `/api/search` | Search comments with PostgreSQL fallback |
 | `POST`, `GET` | `/graphql` | Read-only batched comment-tree queries |
 
@@ -240,7 +279,7 @@ Run the real browser journey against the Compose stack with one-use CAPTCHA cred
 
 ```bash
 credentials=$(docker compose --env-file .env run --rm backend \
-  python manage.py prepare_load_captchas --count 4 | tail -n 1)
+  python manage.py prepare_load_captchas --count 8 | tail -n 1)
 E2E_CAPTCHAS="$credentials" docker compose --env-file .env --profile e2e \
   run --rm playwright
 ```

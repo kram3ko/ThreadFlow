@@ -103,7 +103,7 @@ jobs:
       - name: Run browser journey
         run: |
           credentials=$(docker compose --env-file .env run --rm backend \
-            python manage.py prepare_load_captchas --count 4 | tail -n 1)
+            python manage.py prepare_load_captchas --count 8 | tail -n 1)
           E2E_CAPTCHAS="$credentials" docker compose --env-file .env --profile e2e \
             run --rm playwright
 

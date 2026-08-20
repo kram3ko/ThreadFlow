@@ -22,6 +22,10 @@ function reload() {
   return store.load(sort.value, direction.value);
 }
 
+function selectReply(comment: CommentItem) {
+  replyTo.value = replyTo.value?.id === comment.id ? null : comment;
+}
+
 function focusComment(id: string) {
   highlightedId.value = id;
   void nextTick(() => {
@@ -78,10 +82,8 @@ watch(
 
     <CommentForm
       :submit="store.create"
-      :parent="replyTo"
+      :parent="null"
       :user="auth.user"
-      @submitted="replyTo = null"
-      @cancel="replyTo = null"
     />
 
     <SearchPanel @select="selectComment" />
@@ -117,7 +119,9 @@ watch(
           :key="comment.id"
           :comment="comment"
           :highlighted-id="highlightedId"
-          @reply="replyTo = $event"
+          :reply-to-id="replyTo?.id ?? null"
+          @reply="selectReply"
+          @reply-closed="replyTo = null"
         />
         <button
           v-if="store.nextPage"

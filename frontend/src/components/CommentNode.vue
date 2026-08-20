@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { ref, useTemplateRef } from "vue";
 
+import CommentForm from "./CommentForm.vue";
 import type { AttachmentItem, CommentItem } from "../types";
 import { avatarInitial, avatarStyle } from "../avatar";
+import { useAuthStore } from "../stores/auth";
 import { useCommentsStore } from "../stores/comments";
 
 defineOptions({ name: "CommentNode" });
-const props = defineProps<{ comment: CommentItem; highlightedId: string | null }>();
-const emit = defineEmits<{ reply: [comment: CommentItem] }>();
+const props = defineProps<{
+  comment: CommentItem;
+  highlightedId: string | null;
+  replyToId: string | null;
+}>();
+const emit = defineEmits<{ reply: [comment: CommentItem]; replyClosed: [] }>();
 const store = useCommentsStore();
+const auth = useAuthStore();
 const lightbox = useTemplateRef<HTMLDialogElement>("lightbox");
 const selectedImage = ref<{ url: string; name: string } | null>(null);
 const selectedText = ref<{ content: string; name: string } | null>(null);
@@ -96,6 +103,8 @@ async function cast(value: 1 | -1) {
           class="action-icon"
           title="Reply"
           aria-label="Reply"
+          :aria-expanded="replyToId === comment.id"
+          :aria-controls="`reply-form-${comment.id}`"
           @click="emit('reply', comment)"
         >↩</button>
         <span class="votes">
@@ -142,13 +151,29 @@ async function cast(value: 1 | -1) {
         <pre>{{ selectedText.content }}</pre>
       </section>
     </dialog>
+    <div
+      v-if="replyToId === comment.id"
+      :id="`reply-form-${comment.id}`"
+      class="inline-reply"
+    >
+      <CommentForm
+        class="inline-reply-form"
+        :parent="comment"
+        :user="auth.user"
+        :submit="store.create"
+        @submitted="emit('replyClosed')"
+        @cancel="emit('replyClosed')"
+      />
+    </div>
     <div v-if="comment.replies.length" class="replies">
       <CommentNode
         v-for="reply in comment.replies"
         :key="reply.id"
         :comment="reply"
         :highlighted-id="highlightedId"
+        :reply-to-id="replyToId"
         @reply="emit('reply', $event)"
+        @reply-closed="emit('replyClosed')"
       />
     </div>
     <button
