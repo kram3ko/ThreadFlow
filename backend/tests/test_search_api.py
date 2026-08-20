@@ -27,6 +27,7 @@ def test_search_falls_back_to_postgresql_when_elasticsearch_is_unavailable():
     assert response.status_code == 200
     assert response.json()["source"] == "postgresql"
     assert response.json()["results"][0]["id"] == str(comment.id)
+    assert response.json()["next_offset"] is None
 
 
 @pytest.mark.django_db
@@ -60,6 +61,43 @@ def test_search_returns_elasticsearch_results_with_highlights():
     assert response.json()["results"][0]["highlights"] == ["WebSocket delivery"]
     query = elasticsearch.search.call_args.kwargs["query"]
     assert query["bool"]["must"][0]["bool"]["should"][1]["multi_match"]["type"] == "phrase_prefix"
+    assert elasticsearch.search.call_args.kwargs["size"] == 21
+    assert elasticsearch.search.call_args.kwargs["from_"] == 0
+
+
+@pytest.mark.django_db
+def test_search_paginates_filtered_postgresql_fallback():
+    for index in range(3):
+        comment = Comment.objects.create(
+            author_name="PagedAuthor",
+            author_email=f"paged{index}@example.com",
+            html_text=f"Page {index}",
+            search_text=f"Page {index}",
+            depth=0,
+        )
+        comment.root_id = comment.id
+        comment.save(update_fields=["root"])
+
+    elasticsearch = Mock()
+    elasticsearch.search.side_effect = OSError("unavailable")
+    with patch("apps.search.services.client", return_value=elasticsearch):
+        first = APIClient().get("/api/search?author=PagedAuthor&limit=2&offset=0")
+        second = APIClient().get("/api/search?author=PagedAuthor&limit=2&offset=2")
+
+    assert first.status_code == 200
+    assert len(first.json()["results"]) == 2
+    assert first.json()["next_offset"] == 2
+    assert second.status_code == 200
+    assert len(second.json()["results"]) == 1
+    assert second.json()["next_offset"] is None
+
+
+def test_search_rejects_inverted_date_range():
+    response = APIClient().get(
+        "/api/search?date_from=2026-08-21T00:00:00Z&date_to=2026-08-20T00:00:00Z"
+    )
+
+    assert response.status_code == 400
 
 
 @pytest.mark.django_db

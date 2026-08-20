@@ -76,6 +76,9 @@ test("registration, authentication, comments, reply, image and search", async ({
   await expect(root.getByText(replyText, { exact: true })).toBeVisible();
 
   await page.getByPlaceholder("Search comments and authors…").fill(username);
+  await page.getByText("Filters", { exact: true }).click();
+  await page.getByLabel("Author", { exact: true }).fill(username);
+  await page.locator(".search-filters select").first().selectOption("date");
   const searchResult = page.locator(".search-hit").filter({ hasText: username });
   await expect
     .poll(

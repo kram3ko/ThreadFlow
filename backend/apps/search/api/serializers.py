@@ -8,6 +8,15 @@ class SearchQuerySerializer(serializers.Serializer):
     date_to = serializers.DateTimeField(required=False)
     sort = serializers.ChoiceField(choices=["relevance", "date"], default="relevance")
     direction = serializers.ChoiceField(choices=["asc", "desc"], default="desc")
+    limit = serializers.IntegerField(min_value=1, max_value=50, default=20)
+    offset = serializers.IntegerField(min_value=0, max_value=10_000, default=0)
+
+    def validate(self, attrs):
+        date_from = attrs.get("date_from")
+        date_to = attrs.get("date_to")
+        if date_from and date_to and date_from > date_to:
+            raise serializers.ValidationError({"date_to": "Must not be earlier than date_from."})
+        return attrs
 
 
 class SearchResultSerializer(serializers.Serializer):
@@ -22,6 +31,7 @@ class SearchResultSerializer(serializers.Serializer):
 
 class SearchResponseSerializer(serializers.Serializer):
     results = SearchResultSerializer(many=True)
+    next_offset = serializers.IntegerField(allow_null=True)
 
     def get_fields(self) -> dict[str, serializers.Field]:
         fields = super().get_fields()

@@ -35,7 +35,7 @@ The release candidate implements:
 - Elasticsearch fuzzy full-text search, highlighting, date/author filters and PostgreSQL fallback;
 - bulk Elasticsearch index rebuild tooling with PostgreSQL as the source of truth;
 - comment up/down voting with per-identity deduplication and live `comment.voted` updates;
-- prefix-aware search with debounced type-ahead, result counts and jump-to-comment;
+- prefix-aware paginated search with author/date filters, sorting and jump-to-comment;
 - sign in with either a username or an email address;
 - inline attach control and UTF-8-safe attachment delivery for non-ASCII file names;
 - server-rendered sanitized comment preview with a compact formatting toolbar;
@@ -273,7 +273,7 @@ npm run build
 npm test
 ```
 
-Backend coverage is enforced at 85%. The current complete suite contains 72 tests and reports 87.63% branch-aware coverage. Browser and load-test commands are documented in [`load-tests/README.md`](load-tests/README.md); measured results are recorded in [`docs/testing/load-test-results.md`](docs/testing/load-test-results.md).
+Backend coverage is enforced at 85%. The current complete suite contains 74 tests and reports 88.01% branch-aware coverage. Browser and load-test commands are documented in [`load-tests/README.md`](load-tests/README.md); measured results are recorded in [`docs/testing/load-test-results.md`](docs/testing/load-test-results.md).
 
 Run the real browser journey against the Compose stack with one-use CAPTCHA credentials:
 
