@@ -114,6 +114,6 @@ source = ["backend/apps", "backend/config"]
 omit = ["*/migrations/*", "*/management/commands/*", "*/asgi.py", "*/wsgi.py"]
 
 [tool.coverage.report]
-fail_under = 80
+fail_under = 85
 show_missing = true
 skip_covered = true

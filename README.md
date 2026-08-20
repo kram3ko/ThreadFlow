@@ -2,9 +2,9 @@
 
 ThreadFlow is a Vue and Django SPA for scalable threaded comments. PostgreSQL is the source of truth; the application is delivered in vertical milestones so the synchronous comment path stays usable while asynchronous infrastructure is added.
 
-## Milestone status
+## Implementation status
 
-The first event-driven milestone is implemented:
+The release candidate implements:
 
 - guest root comments and replies;
 - UUID users and comments;
@@ -16,33 +16,35 @@ The first event-driven milestone is implemented:
 - PostgreSQL migrations, unified API errors and health check;
 - Docker images for Django, Vue and Nginx;
 - provisioned PostgreSQL 17 and Redis Server 8.10;
-- backend API tests, Ruff and Pyright configuration.
+- backend API tests, Ruff and Pyright configuration;
 - JWT registration, login, refresh, logout and current-user flows;
 - httpOnly authentication cookies with CSRF protection and refresh rotation;
 - Pinia authentication state without JavaScript-accessible JWTs;
-- automated backend/frontend quality gates in pre-commit and GitHub Actions.
+- automated backend/frontend quality gates in pre-commit and GitHub Actions;
 - Redis-backed CAPTCHA required for every root and reply;
 - Redis-backed write throttling for comment creation;
-- validated and sanitized comment HTML limited to safe formatting tags.
+- validated and sanitized comment HTML limited to safe formatting tags;
 - typed WebSocket commands and live `comment.created` delivery through Redis;
 - automatic reconnect, REST resynchronization and REST write fallback;
 - compact modal authentication and deterministic guest avatars;
-- persisted `Auto`, light and dark color themes.
+- persisted `Auto`, light and dark color themes;
 - private MinIO/S3-compatible image and TXT attachments with content-based MIME checks;
 - proportional 320×240 image resizing, safe TXT delivery and optional account avatars;
 - transactional PostgreSQL outbox with acknowledged Kafka publication;
 - independent, idempotent search and WebSocket consumer groups, retry and DLQ topics;
 - Elasticsearch fuzzy full-text search, highlighting, date/author filters and PostgreSQL fallback;
-- complete index rebuild tooling with PostgreSQL as the source of truth.
+- bulk Elasticsearch index rebuild tooling with PostgreSQL as the source of truth;
 - comment up/down voting with per-identity deduplication and live `comment.voted` updates;
 - prefix-aware search with debounced type-ahead, result counts and jump-to-comment;
 - sign in with either a username or an email address;
-- inline attach control and UTF-8-safe attachment delivery for non-ASCII file names.
+- inline attach control and UTF-8-safe attachment delivery for non-ASCII file names;
 - server-rendered sanitized comment preview with a compact formatting toolbar;
-- Prometheus metrics for HTTP, comments, votes, search and the event pipeline.
+- Prometheus metrics for HTTP, comments, votes, search and the event pipeline;
 - read-only GraphQL trees with request-scoped batching and query limits;
 - Redis-cached comment pages with write-safe namespace invalidation;
-- incremental root pagination, lazy branch expansion and safe in-app TXT previews.
+- incremental root pagination, lazy branch expansion and safe in-app TXT previews;
+- Playwright browser coverage and k6 API/WebSocket load profiles;
+- bulk seed tooling verified with 1,000,000 comments and 10,000 users.
 
 Redis serves CAPTCHA, write rate limiting, popular-page caching, the Channels layer and the owner-checked outbox publisher lease.
 
@@ -90,7 +92,7 @@ frontend/         Vue SPA
 docker/           Backend, frontend and Nginx container definitions
 docs/api/         Human-readable REST contracts and usage notes
 docs/realtime/    WebSocket operations, event registry and delivery semantics
-load-tests/       k6 scenarios added after search and WebSocket implementation
+load-tests/       k6 API and WebSocket profiles, preparation and results
 docker-compose.yml
 pyproject.toml
 uv.lock
@@ -107,9 +109,11 @@ docker compose --env-file .env up --build
 
 The `.env` file is required and is not committed (it is gitignored), so this copy step is mandatory: `.env.example` is the tracked template and Compose reads the resulting `.env` from the project directory. The defaults run locally as-is; replace every `change-me` secret before exposing the application outside a local machine. Open `http://localhost:8080`. Startup applies migrations and optionally creates the demo account configured by `DEMO_USER_*`; guest comments do not require authentication.
 
-Startup also creates Kafka topics, the MinIO bucket and the Elasticsearch index on demand. Stop the stack without deleting persistent volumes:
+The template creates the local demonstration account `demo` / `demo-password`. These credentials are intentionally local-only and must be changed or disabled before exposing the stack.
 
-The MinIO API and console bind to loopback ports `9100` and `9101` by default; application containers use the private `minio:9000` address.
+Startup also creates Kafka topics, the MinIO bucket and the Elasticsearch index on demand. Prometheus is available at `http://localhost:9090`; all web and consumer scrape targets are configured automatically. The MinIO API and console bind to loopback ports `9100` and `9101` by default; application containers use the private `minio:9000` address.
+
+Stop the stack without deleting persistent volumes:
 
 ```bash
 docker compose --env-file .env down
@@ -230,6 +234,17 @@ npm run build
 npm test
 ```
 
+Backend coverage is enforced at 85%. The current complete suite contains 71 tests and reports 86.33% branch-aware coverage. Browser and load-test commands are documented in [`load-tests/README.md`](load-tests/README.md); measured results are recorded in [`docs/testing/load-test-results.md`](docs/testing/load-test-results.md).
+
+Run the real browser journey against the Compose stack with one-use CAPTCHA credentials:
+
+```bash
+credentials=$(docker compose --env-file .env run --rm backend \
+  python manage.py prepare_load_captchas --count 4 | tail -n 1)
+E2E_CAPTCHAS="$credentials" docker compose --env-file .env --profile e2e \
+  run --rm playwright
+```
+
 ## Data model
 
 Comments use an adjacency list plus denormalized branch metadata:
@@ -257,10 +272,9 @@ Mermaid source: [`docs/architecture/db-schema.mmd`](docs/architecture/db-schema.
 - commits use imperative present-tense subjects.
 - pushing and merging are explicit operations; local work is never pushed automatically.
 
-## Roadmap
+## Remaining delivery work
 
-1. Playwright end-to-end coverage and service integration tests.
-2. k6 load profiles, million-comment seed data and release documentation.
+The repository implementation, automated tests and local release tooling are complete. Public deployment and the demonstration video are intentionally left to the final delivery environment.
 
 The attachment milestone also adds optional account avatars stored in object storage. Guest comments use locally generated initial avatars so visitor email addresses are never sent to an external avatar service. Final visual polish follows the functional milestones and keeps the comment feed compact, avatar-led and focused on live discussion.
 
@@ -271,4 +285,4 @@ The attachment milestone also adds optional account avatars stored in object sto
 - retry backoff blocks the affected consumer partition; a dedicated delayed-retry scheduler is deferred;
 - orphaned pending object cleanup is not scheduled yet;
 - large branches are bounded by response depth and expanded lazily rather than returned without a limit;
-- production deployment and load-test results are not available yet.
+- the repository does not include a public deployment URL or demonstration video.

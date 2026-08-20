@@ -23,7 +23,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v10.0.1
         with:
-          version: "0.12.1"
+          version: "0.12.5"
           enable-cache: true
 
       - name: Install Python
@@ -83,3 +83,49 @@ jobs:
 
       - name: Build application
         run: npm run build
+
+      - name: Validate Playwright suite
+        run: npx playwright test --list
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Prepare environment
+        run: cp .env.example .env
+
+      - name: Start application
+        run: docker compose --env-file .env up -d --build --wait --wait-timeout 240
+
+      - name: Run browser journey
+        run: |
+          credentials=$(docker compose --env-file .env run --rm backend \
+            python manage.py prepare_load_captchas --count 4 | tail -n 1)
+          E2E_CAPTCHAS="$credentials" docker compose --env-file .env --profile e2e \
+            run --rm playwright
+
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose --env-file .env logs --no-color --tail 200
+
+      - name: Stop application
+        if: always()
+        run: docker compose --env-file .env down --volumes
+
+  load-test-contracts:
+    name: Load-test contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Build k6 suite
+        run: docker build -f docker/k6/Dockerfile -t threadflow-k6 .
+
+      - name: Validate k6 scenarios
+        run: |
+          docker run --rm --entrypoint k6 threadflow-k6 inspect /scripts/api.js
+          docker run --rm --entrypoint k6 threadflow-k6 inspect /scripts/websocket.js
