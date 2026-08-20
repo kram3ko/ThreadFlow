@@ -98,6 +98,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "drf_spectacular_sidecar",
+    "strawberry_django",
     "apps.accounts",
     "apps.captcha",
     "apps.comments",

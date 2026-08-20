@@ -40,8 +40,9 @@ The first event-driven milestone is implemented:
 - inline attach control and UTF-8-safe attachment delivery for non-ASCII file names.
 - server-rendered sanitized comment preview with a compact formatting toolbar;
 - Prometheus metrics for HTTP, comments, votes, search and the event pipeline.
+- read-only GraphQL trees with request-scoped batching and query limits.
 
-GraphQL remains a locked dependency for the next milestone. Redis serves CAPTCHA, write rate limiting, the Channels layer and the owner-checked outbox publisher lease; page caching remains later work.
+Redis serves CAPTCHA, write rate limiting, the Channels layer and the owner-checked outbox publisher lease; page caching remains later work.
 
 ## Architecture
 
@@ -76,6 +77,7 @@ Command paths are `Browser → Nginx → REST/WebSocket → Django → PostgreSQ
 - Elasticsearch 9.4 provides the rebuildable search projection and PostgreSQL provides fallback reads.
 - MinIO provides the local private S3-compatible object store; AWS S3 can use the same storage adapter.
 - Prometheus scrapes the web process and each background consumer independently.
+- Strawberry GraphQL exposes selection-based, batched read access without duplicating commands.
 - Nginx exposes one public endpoint and routes `/api/` to Django.
 
 ## Repository layout
@@ -159,6 +161,7 @@ Interactive and machine-readable documentation:
 | `POST` | `/api/attachments` | Validate and upload an attachment or avatar |
 | `GET` | `/api/attachments/{id}/content` | Safely stream stored content |
 | `GET` | `/api/search` | Search comments with PostgreSQL fallback |
+| `POST`, `GET` | `/graphql` | Read-only batched comment-tree queries |
 
 Live comment commands and events use `ws://localhost:8080/ws/comments`; `comment.created` and `comment.voted` are pushed to subscribers. An expired or invalid token degrades to a guest connection instead of dropping the socket. See [`docs/realtime/websocket.md`](docs/realtime/websocket.md) for the typed contract and event registry.
 
