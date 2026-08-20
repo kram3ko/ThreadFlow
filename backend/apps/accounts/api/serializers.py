@@ -6,9 +6,15 @@ from apps.accounts.models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
+    avatar_url = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ("id", "username", "email", "created_at")
+        fields = ("id", "username", "email", "created_at", "avatar_url")
+
+    def get_avatar_url(self, obj: User) -> str | None:
+        avatar = obj.uploads.filter(purpose="avatar").order_by("-created_at").first()
+        return f"/api/attachments/{avatar.id}/content" if avatar else None
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -40,7 +46,7 @@ class RegisterSerializer(serializers.Serializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField(max_length=150)
+    username = serializers.CharField(max_length=254, help_text="Username or email address.")
     password = serializers.CharField(max_length=128, trim_whitespace=False)
 
 

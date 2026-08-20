@@ -14,6 +14,13 @@ interface CommentCreatedEvent {
   data: { kind: "root" | "reply"; comment: CommentItem };
 }
 
+interface CommentVotedEvent {
+  type: SocketMessageType.Event;
+  event: CommentEvent.Voted;
+  event_id: string;
+  data: { comment_id: string; score: number };
+}
+
 interface ResponseMessage {
   type: SocketMessageType.Response;
   id: string;
@@ -29,6 +36,7 @@ interface ErrorMessage {
 
 type SocketMessage =
   | CommentCreatedEvent
+  | CommentVotedEvent
   | ResponseMessage
   | ErrorMessage
   | { type: SocketMessageType.Subscribed; topics: CommentTopic[] };
@@ -71,6 +79,7 @@ export class CommentsSocket {
   constructor(
     private readonly onComment: (comment: CommentItem) => void,
     private readonly onStatus: (status: SocketStatus) => void,
+    private readonly onVote: (commentId: string, score: number) => void,
   ) {}
 
   get isOpen(): boolean {
@@ -144,6 +153,10 @@ export class CommentsSocket {
     }
     if (message.type === SocketMessageType.Event && message.event === CommentEvent.Created) {
       this.onComment(message.data.comment);
+      return;
+    }
+    if (message.type === SocketMessageType.Event && message.event === CommentEvent.Voted) {
+      this.onVote(message.data.comment_id, message.data.score);
       return;
     }
     if (message.type === SocketMessageType.Response) {

@@ -28,9 +28,6 @@ class CommentSocketConsumer(AsyncJsonWebsocketConsumer):
     subscribed = False
 
     async def connect(self) -> None:
-        if self.scope.get("auth_error"):
-            await self.close(code=4401)
-            return
         await self.accept()
 
     async def disconnect(self, code: int) -> None:
@@ -97,7 +94,7 @@ class CommentSocketConsumer(AsyncJsonWebsocketConsumer):
             {
                 "type": SocketMessageType.RESPONSE,
                 "id": request_id,
-                "data": {"comment": comment_payload(comment)},
+                "data": {"comment": comment},
             }
         )
 
@@ -113,6 +110,12 @@ class CommentSocketConsumer(AsyncJsonWebsocketConsumer):
         return cast(User | AnonymousUser, self.scope.get("user", AnonymousUser()))
 
     async def comment_created(self, event: dict[str, Any]) -> None:
+        await self.send_json(event["envelope"])
+
+    async def comment_voted(self, event: dict[str, Any]) -> None:
+        await self.send_json(event["envelope"])
+
+    async def search_indexed(self, event: dict[str, Any]) -> None:
         await self.send_json(event["envelope"])
 
     async def _error(self, request_id: Any, code: str, details: Any) -> None:
@@ -133,7 +136,7 @@ def _create_comment(
     parent_id: str | None,
     user: User | AnonymousUser,
     identity: str,
-) -> Comment:
+) -> dict[str, Any]:
     limit = check_comment_rate_limit(identity)
     if not limit.allowed:
         raise serializers.ValidationError(
@@ -147,4 +150,4 @@ def _create_comment(
         context={"request": _RequestContext(user=user), "parent": parent},
     )
     serializer.is_valid(raise_exception=True)
-    return serializer.save()
+    return comment_payload(serializer.save())

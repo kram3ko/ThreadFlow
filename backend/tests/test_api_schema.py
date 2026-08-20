@@ -19,11 +19,15 @@ def test_openapi_schema_documents_current_routes(api_client):
         "/api/auth/me",
         "/api/auth/refresh",
         "/api/auth/register",
+        "/api/attachments",
+        "/api/attachments/{id}/content",
         "/api/captcha",
         "/api/comments",
         "/api/comments/{id}",
         "/api/comments/{id}/replies",
+        "/api/comments/{id}/vote",
         "/api/health",
+        "/api/search",
     }
     assert set(paths["/api/comments"]) == {"get", "post"}
     assert set(paths["/api/comments/{id}"]) == {"get"}

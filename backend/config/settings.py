@@ -55,6 +55,30 @@ CAPTCHA_TTL_SECONDS = int(os.getenv("CAPTCHA_TTL_SECONDS", "300"))
 CAPTCHA_MAX_ATTEMPTS = int(os.getenv("CAPTCHA_MAX_ATTEMPTS", "3"))
 COMMENT_RATE_LIMIT = os.getenv("RATE_LIMIT_COMMENT_PER_MINUTE", "10")
 COMMENT_RATE_LIMIT_PER_MINUTE = int(COMMENT_RATE_LIMIT.split("/", maxsplit=1)[0])
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+KAFKA_CLIENT_ID = os.getenv("KAFKA_CLIENT_ID", "threadflow")
+KAFKA_CONSUMER_GROUP_PREFIX = os.getenv("KAFKA_CONSUMER_GROUP_PREFIX", "threadflow")
+KAFKA_RETRY_MAX_ATTEMPTS = int(os.getenv("KAFKA_RETRY_MAX_ATTEMPTS", "5"))
+KAFKA_RETRY_BACKOFF_SECONDS = float(os.getenv("KAFKA_RETRY_BACKOFF_SECONDS", "5"))
+KAFKA_TOPICS = {
+    "comments_created": os.getenv("KAFKA_TOPIC_COMMENTS_CREATED", "comments.created"),
+    "comments_updated": os.getenv("KAFKA_TOPIC_COMMENTS_UPDATED", "comments.updated"),
+    "attachments_uploaded": os.getenv("KAFKA_TOPIC_ATTACHMENTS_UPLOADED", "attachments.uploaded"),
+    "search_index": os.getenv("KAFKA_TOPIC_SEARCH_INDEX", "search.index"),
+    "retry": os.getenv("KAFKA_TOPIC_RETRY", "events.retry"),
+    "dlq": os.getenv("KAFKA_TOPIC_DLQ", "events.dlq"),
+}
+OUTBOX_BATCH_SIZE = int(os.getenv("OUTBOX_BATCH_SIZE", "100"))
+OUTBOX_POLL_INTERVAL_SECONDS = float(os.getenv("OUTBOX_POLL_INTERVAL_SECONDS", "1"))
+ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
+ELASTICSEARCH_INDEX = os.getenv("ELASTICSEARCH_INDEX", "threadflow-comments-v1")
+ELASTICSEARCH_REQUEST_TIMEOUT_SECONDS = int(
+    os.getenv("ELASTICSEARCH_REQUEST_TIMEOUT_SECONDS", "10")
+)
+ATTACHMENT_MAX_BYTES = int(os.getenv("ATTACHMENT_MAX_BYTES", "10485760"))
+TXT_MAX_BYTES = int(os.getenv("TXT_MAX_BYTES", "102400"))
+IMAGE_MAX_WIDTH = int(os.getenv("IMAGE_MAX_WIDTH", "320"))
+IMAGE_MAX_HEIGHT = int(os.getenv("IMAGE_MAX_HEIGHT", "240"))
 
 INSTALLED_APPS = [
     "django.contrib.auth",
@@ -69,6 +93,9 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.captcha",
     "apps.comments",
+    "apps.attachments",
+    "apps.events",
+    "apps.search",
 ]
 
 MIDDLEWARE = [
@@ -140,6 +167,8 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SESSION_COOKIE_SECURE = COOKIE_SECURE
 CSRF_COOKIE_SECURE = COOKIE_SECURE
@@ -175,10 +204,13 @@ CACHES = {
     }
 }
 
+# RedisPubSubChannelLayer keeps a stable subscription; the classic
+# RedisChannelLayer's blocking receive periodically raises redis TimeoutError
+# on idle sockets and drops the WebSocket.
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": (
-            "channels_redis.core.RedisChannelLayer"
+            "channels_redis.pubsub.RedisPubSubChannelLayer"
             if REDIS_URL
             else "channels.layers.InMemoryChannelLayer"
         ),
@@ -186,8 +218,7 @@ CHANNEL_LAYERS = {
             {
                 "CONFIG": {
                     "hosts": [REDIS_URL],
-                    "capacity": int(os.getenv("WS_CHANNEL_CAPACITY", "1000")),
-                    "expiry": int(os.getenv("WS_EVENT_EXPIRY_SECONDS", "60")),
+                    "prefix": os.getenv("WS_CHANNEL_PREFIX", "threadflow:ws"),
                 }
             }
             if REDIS_URL
@@ -195,6 +226,25 @@ CHANNEL_LAYERS = {
         ),
     }
 }
+
+if os.getenv("S3_ENDPOINT_URL"):
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": {
+                "bucket_name": os.getenv("S3_BUCKET", "threadflow"),
+                "access_key": os.getenv("S3_ACCESS_KEY_ID"),
+                "secret_key": os.getenv("S3_SECRET_ACCESS_KEY"),
+                "endpoint_url": os.getenv("S3_ENDPOINT_URL"),
+                "region_name": os.getenv("S3_REGION", "us-east-1"),
+                "use_ssl": os.getenv("S3_USE_SSL", "false").lower() == "true",
+                "default_acl": None,
+                "querystring_auth": True,
+                "file_overwrite": False,
+            },
+        },
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "ThreadFlow API",

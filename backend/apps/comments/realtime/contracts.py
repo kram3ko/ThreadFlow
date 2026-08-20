@@ -13,6 +13,7 @@ class CommentOperation(StrEnum):
 
 class CommentEvent(StrEnum):
     CREATED = "comment.created"
+    VOTED = "comment.voted"
 
 
 class CommentKind(StrEnum):

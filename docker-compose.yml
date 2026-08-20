@@ -30,11 +30,79 @@ services:
     volumes:
       - redis_data:/data
 
+  kafka:
+    image: ${KAFKA_IMAGE:-apache/kafka:4.3.1}
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  kafka-init:
+    image: ${KAFKA_IMAGE:-apache/kafka:4.3.1}
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        for topic in comments.created comments.updated attachments.uploaded search.index events.retry events.dlq;
+        do /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists
+        --topic $$topic --partitions 6 --replication-factor 1;
+        done
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  elasticsearch:
+    image: ${ELASTICSEARCH_IMAGE:-docker.elastic.co/elasticsearch/elasticsearch:9.4.3}
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.license.self_generated.type: basic
+      ES_JAVA_OPTS: ${ELASTICSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+
+  minio:
+    image: ${MINIO_IMAGE:-minio/minio:RELEASE.2025-09-07T16-13-09Z}
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-threadflow}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-threadflow-secret}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9100}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9101}:9001"
+    volumes:
+      - minio_data:/data
+
   backend:
     build:
       context: .
       dockerfile: docker/backend/Dockerfile
-    environment:
+    environment: &backend-environment
       APP_ENV: ${APP_ENV:-development}
       POSTGRES_DB: ${POSTGRES_DB:-threadflow}
       POSTGRES_USER: ${POSTGRES_USER:-threadflow}
@@ -69,6 +137,32 @@ services:
       WS_CHANNEL_CAPACITY: ${WS_CHANNEL_CAPACITY:-1000}
       WS_EVENT_EXPIRY_SECONDS: ${WS_EVENT_EXPIRY_SECONDS:-60}
       WS_HEARTBEAT_INTERVAL_SECONDS: ${WS_HEARTBEAT_INTERVAL_SECONDS:-20}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID:-threadflow}
+      KAFKA_CONSUMER_GROUP_PREFIX: ${KAFKA_CONSUMER_GROUP_PREFIX:-threadflow}
+      KAFKA_RETRY_MAX_ATTEMPTS: ${KAFKA_RETRY_MAX_ATTEMPTS:-5}
+      KAFKA_RETRY_BACKOFF_SECONDS: ${KAFKA_RETRY_BACKOFF_SECONDS:-5}
+      KAFKA_TOPIC_COMMENTS_CREATED: ${KAFKA_TOPIC_COMMENTS_CREATED:-comments.created}
+      KAFKA_TOPIC_COMMENTS_UPDATED: ${KAFKA_TOPIC_COMMENTS_UPDATED:-comments.updated}
+      KAFKA_TOPIC_ATTACHMENTS_UPLOADED: ${KAFKA_TOPIC_ATTACHMENTS_UPLOADED:-attachments.uploaded}
+      KAFKA_TOPIC_SEARCH_INDEX: ${KAFKA_TOPIC_SEARCH_INDEX:-search.index}
+      KAFKA_TOPIC_RETRY: ${KAFKA_TOPIC_RETRY:-events.retry}
+      KAFKA_TOPIC_DLQ: ${KAFKA_TOPIC_DLQ:-events.dlq}
+      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-100}
+      OUTBOX_POLL_INTERVAL_SECONDS: ${OUTBOX_POLL_INTERVAL_SECONDS:-1}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_INDEX: ${ELASTICSEARCH_INDEX:-threadflow-comments-v1}
+      ELASTICSEARCH_REQUEST_TIMEOUT_SECONDS: ${ELASTICSEARCH_REQUEST_TIMEOUT_SECONDS:-10}
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-threadflow}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-threadflow}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-threadflow-secret}
+      S3_USE_SSL: ${S3_USE_SSL:-false}
+      ATTACHMENT_MAX_BYTES: ${ATTACHMENT_MAX_BYTES:-10485760}
+      TXT_MAX_BYTES: ${TXT_MAX_BYTES:-102400}
+      IMAGE_MAX_WIDTH: ${IMAGE_MAX_WIDTH:-320}
+      IMAGE_MAX_HEIGHT: ${IMAGE_MAX_HEIGHT:-240}
       DEMO_USER_NAME: ${DEMO_USER_NAME:-demo}
       DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-demo@threadflow.local}
       DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-demo-password}
@@ -77,6 +171,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     volumes:
       - static_data:/app/backend/staticfiles
     healthcheck:
@@ -84,6 +184,50 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
+
+  outbox-publisher:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    entrypoint: []
+    command: ["python", "manage.py", "run_outbox_publisher"]
+    environment: *backend-environment
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  search-consumer:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    entrypoint: []
+    command: ["python", "manage.py", "run_search_consumer"]
+    environment: *backend-environment
+    depends_on:
+      search-bootstrap:
+        condition: service_completed_successfully
+
+  search-bootstrap:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    entrypoint: []
+    command: ["python", "manage.py", "rebuild_search_index"]
+    environment: *backend-environment
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  websocket-consumer:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    entrypoint: []
+    command: ["python", "manage.py", "run_websocket_consumer"]
+    environment: *backend-environment
+    depends_on:
+      backend:
+        condition: service_healthy
 
   frontend:
     build:
@@ -112,4 +256,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  kafka_data:
+  elasticsearch_data:
+  minio_data:
   static_data:

@@ -1,5 +1,5 @@
 import uuid
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.conf import settings
 from django.db import models
@@ -10,6 +10,8 @@ class Comment(models.Model):
     if TYPE_CHECKING:
         parent_id: uuid.UUID | None
         root_id: uuid.UUID | None
+        user_id: uuid.UUID | None
+        attachments: Any
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
@@ -39,6 +41,7 @@ class Comment(models.Model):
         related_name="branch_comments",
     )
     depth = models.PositiveIntegerField(default=0)
+    score = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -72,3 +75,30 @@ class Comment(models.Model):
 
     def __str__(self) -> str:
         return f"{self.author_name}: {self.search_text[:40]}"
+
+
+class CommentVote(models.Model):
+    """One vote per identity per comment.
+
+    `identity` is `user:<pk>` for authenticated users or `guest:<ip>` for
+    guests, so a single voter cannot inflate a comment's score.
+    """
+
+    UP = 1
+    DOWN = -1
+
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name="votes")
+    identity = models.CharField(max_length=100)
+    value = models.SmallIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.UniqueConstraint(
+                fields=["comment", "identity"], name="unique_vote_per_identity"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.identity} {self.value:+d}"

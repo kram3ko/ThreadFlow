@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import AuthPanel from "../components/AuthPanel.vue";
 import CommentForm from "../components/CommentForm.vue";
 import CommentNode from "../components/CommentNode.vue";
 import ThemeToggle from "../components/ThemeToggle.vue";
+import SearchPanel from "../components/SearchPanel.vue";
 import { useCommentsStore } from "../stores/comments";
 import { useAuthStore } from "../stores/auth";
 import type { CommentItem } from "../types";
@@ -14,16 +15,40 @@ const auth = useAuthStore();
 const sort = ref("date");
 const direction = ref("desc");
 const replyTo = ref<CommentItem | null>(null);
+const highlightedId = ref<string | null>(null);
+const HIGHLIGHT_MS = 2000;
 
 function reload() {
   return store.load(sort.value, direction.value);
 }
 
-onMounted(() => {
+function focusComment(id: string) {
+  highlightedId.value = id;
+  void nextTick(() => {
+    document.getElementById(`comment-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+  window.setTimeout(() => {
+    if (highlightedId.value === id) highlightedId.value = null;
+  }, HIGHLIGHT_MS);
+}
+
+async function focusFromHash() {
+  const match = location.hash.match(/^#comment-([0-9a-f-]+)$/i);
+  if (!match?.[1]) return;
+  const id = match[1];
+  await store.ensureLoaded(id);
+  focusComment(id);
+}
+
+onMounted(async () => {
   void auth.initialize();
-  void reload();
+  await reload();
   store.startRealtime();
+  void focusFromHash();
+  window.addEventListener("hashchange", focusFromHash);
 });
+
+onBeforeUnmount(() => window.removeEventListener("hashchange", focusFromHash));
 
 watch(
   () => auth.user?.id,
@@ -55,6 +80,8 @@ watch(
       @cancel="replyTo = null"
     />
 
+    <SearchPanel @select="focusComment" />
+
     <section class="feed">
       <div class="feed-toolbar">
         <h2>Comments</h2>
@@ -85,6 +112,7 @@ watch(
           v-for="comment in store.comments"
           :key="comment.id"
           :comment="comment"
+          :highlighted-id="highlightedId"
           @reply="replyTo = $event"
         />
       </template>

@@ -79,7 +79,7 @@ extend-exclude = ["backend/**/migrations/*.py", ".venv"]
 # E/F/W — Python correctness; I — imports; N — naming; UP — modern Python.
 # B/SIM/RET — likely bugs and needless control flow; DJ — Django-specific mistakes.
 # RUF/PLE/PLW — Ruff and Pylint correctness checks with a strong signal-to-noise ratio.
-select = ["E", "F", "W", "I", "N", "UP", "B", "S", "SIM", "RET", "RUF", "PLE", "PLW", "DJ"]
+select = ["E", "F", "W", "I", "N", "UP", "B", "BLE", "S", "SIM", "RET", "RUF", "PLE", "PLW", "DJ"]
 # Project text may legitimately contain mixed Latin and Cyrillic characters.
 ignore = ["RUF001", "RUF002", "RUF003"]
 
@@ -88,6 +88,10 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "backend/config/settings.py" = ["S105"]
 # Assertions are the native pytest API.
 "backend/tests/**/*.py" = ["S101"]
+# Object persistence spans storage and SQL; any failed second step must compensate the first.
+"backend/apps/attachments/services.py" = ["BLE001"]
+# This is the outer consumer boundary: every handler failure must enter retry or DLQ.
+"backend/apps/events/processing.py" = ["BLE001"]
 
 [tool.ruff.format]
 quote-style = "double"
