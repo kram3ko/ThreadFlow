@@ -7,6 +7,7 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import BaseThrottle
 
 from apps.attachments.models import Attachment, AttachmentPurpose
 from apps.comments.api.docs import document_comment_viewset
@@ -19,7 +20,7 @@ from apps.comments.api.serializers import (
 )
 from apps.comments.html import sanitize_comment_html
 from apps.comments.models import Comment
-from apps.comments.rate_limit import CommentRateThrottle
+from apps.comments.rate_limit import CommentRateThrottle, VoteRateThrottle
 from apps.comments.realtime.publisher import publish_comment_voted
 from apps.comments.voting import apply_vote, voter_identity
 from apps.observability.metrics import COMMENT_VOTES
@@ -67,10 +68,12 @@ class CommentViewSet(
     lookup_value_converter = "uuid"
     queryset = Comment.objects.all()
 
-    def get_throttles(self) -> list[CommentRateThrottle]:
-        if self.action not in {"create", "replies"}:
-            return []
-        return [CommentRateThrottle()]
+    def get_throttles(self) -> list[BaseThrottle]:
+        if self.action in {"create", "replies"}:
+            return [CommentRateThrottle()]
+        if self.action == "vote":
+            return [VoteRateThrottle()]
+        return []
 
     def list(self, request, *args, **kwargs):
         roots: QuerySet[Comment] = with_reply_marker(

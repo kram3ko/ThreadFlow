@@ -120,6 +120,8 @@ def publish_pending_batch() -> int:
                         "Unsupported event type routed to DLQ" if event_id in routed_to_dlq else ""
                     ),
                 )
-                EVENTS_PUBLISHED.labels(event.event_type).inc()
+                transaction.on_commit(
+                    lambda event_type=event.event_type: EVENTS_PUBLISHED.labels(event_type).inc()
+                )
                 sent += 1
         return sent

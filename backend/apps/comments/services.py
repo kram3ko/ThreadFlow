@@ -57,5 +57,5 @@ def create_comment(
             "comment": comment_payload(comment),
         },
     )
-    COMMENTS_CREATED.labels(kind).inc()
+    transaction.on_commit(lambda: COMMENTS_CREATED.labels(kind).inc())
     return comment

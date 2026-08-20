@@ -1,13 +1,17 @@
+import logging
 import uuid
 from typing import Any
 
 from asgiref.sync import async_to_sync
+from channels.exceptions import ChannelFull
 from channels.layers import get_channel_layer
+from redis.exceptions import RedisError
 
 from apps.comments.models import Comment
 from apps.comments.realtime.contracts import CommentEvent, CommentKind, SocketMessageType
 
 PUBLIC_COMMENT_GROUP = "comments.public"
+logger = logging.getLogger(__name__)
 
 
 def comment_payload(comment: Comment) -> dict[str, Any]:
@@ -73,17 +77,22 @@ def publish_comment_created(comment: Comment, *, event_id: str | None = None) ->
     )
 
 
-def publish_comment_voted(comment_id: str, score: int) -> None:
+def publish_comment_voted(comment_id: str, score: int) -> bool:
     channel_layer = get_channel_layer()
     if channel_layer is None:
-        return
+        return False
     envelope = {
         "type": SocketMessageType.EVENT,
         "event": CommentEvent.VOTED,
         "event_id": str(uuid.uuid4()),
         "data": {"comment_id": comment_id, "score": score},
     }
-    async_to_sync(channel_layer.group_send)(
-        PUBLIC_COMMENT_GROUP,
-        {"type": CommentEvent.VOTED, "envelope": envelope},
-    )
+    try:
+        async_to_sync(channel_layer.group_send)(
+            PUBLIC_COMMENT_GROUP,
+            {"type": CommentEvent.VOTED, "envelope": envelope},
+        )
+    except ChannelFull, RedisError, TimeoutError:
+        logger.warning("Unable to publish vote update for comment %s", comment_id)
+        return False
+    return True
