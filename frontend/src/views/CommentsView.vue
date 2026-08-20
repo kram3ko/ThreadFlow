@@ -119,6 +119,13 @@ watch(
           :highlighted-id="highlightedId"
           @reply="replyTo = $event"
         />
+        <button
+          v-if="store.nextPage"
+          class="load-more"
+          type="button"
+          :disabled="store.loadingMore"
+          @click="store.loadMore"
+        >{{ store.loadingMore ? "Loading…" : "Load 25 more comments" }}</button>
       </template>
     </section>
   </main>

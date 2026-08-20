@@ -119,4 +119,37 @@ describe("comments store", () => {
     expect(api.get).toHaveBeenCalledWith("/comments/root-id", { params: { depth: 10 } });
     expect(store.comments).toEqual([root]);
   });
+
+  it("appends the next root page without duplicates", async () => {
+    const root = {
+      id: "root-id",
+      author_name: "Alice",
+      author_email: "alice@example.com",
+      homepage: "",
+      html_text: "Root",
+      text: "Root",
+      parent_id: null,
+      root_id: "root-id",
+      depth: 0,
+      score: 0,
+      created_at: "2026-08-19T12:00:00Z",
+      has_more_replies: false,
+      avatar_url: null,
+      attachments: [],
+      replies: [],
+    } satisfies CommentItem;
+    const nextRoot = { ...root, id: "next-root", root_id: "next-root" };
+    vi.mocked(api.get).mockResolvedValue({
+      data: { next: null, previous: "/comments", results: [root, nextRoot] },
+    });
+    const store = useCommentsStore();
+    store.comments = [root];
+    store.nextPage = "/comments?cursor=next";
+
+    await store.loadMore();
+
+    expect(api.get).toHaveBeenCalledWith("/comments?cursor=next");
+    expect(store.comments.map((comment) => comment.id)).toEqual(["root-id", "next-root"]);
+    expect(store.nextPage).toBeNull();
+  });
 });

@@ -28,11 +28,13 @@ export const useCommentsStore = defineStore("comments", {
   state: () => ({
     comments: [] as CommentItem[],
     loading: false,
+    loadingMore: false,
     error: "",
     sort: "date",
     direction: "desc",
     socketStatus: "closed" as SocketStatus,
     pendingRoots: 0,
+    nextPage: null as string | null,
     socket: null as CommentsSocket | null,
   }),
   actions: {
@@ -46,11 +48,27 @@ export const useCommentsStore = defineStore("comments", {
           params: { sort, direction },
         });
         this.comments = data.results;
+        this.nextPage = data.next;
         this.pendingRoots = 0;
       } catch (error: unknown) {
         this.error = axios.isAxiosError(error) ? error.message : "Unable to load comments";
       } finally {
         this.loading = false;
+      }
+    },
+    async loadMore() {
+      if (!this.nextPage || this.loadingMore) return;
+      this.loadingMore = true;
+      this.error = "";
+      try {
+        const { data } = await api.get<CommentPage>(this.nextPage);
+        const known = new Set(this.comments.map((comment) => comment.id));
+        this.comments.push(...data.results.filter((comment) => !known.has(comment.id)));
+        this.nextPage = data.next;
+      } catch (error: unknown) {
+        this.error = axios.isAxiosError(error) ? error.message : "Unable to load more comments";
+      } finally {
+        this.loadingMore = false;
       }
     },
     async create(draft: CommentDraft, parentId?: string) {
@@ -111,7 +129,7 @@ export const useCommentsStore = defineStore("comments", {
         this.applyScore(data.id, data.score);
         return true;
       } catch {
-        this.error = "Unable to load the selected comment";
+        this.error = "Unable to save the vote";
         return false;
       }
     },
@@ -121,13 +139,19 @@ export const useCommentsStore = defineStore("comments", {
     },
     async ensureLoaded(id: string): Promise<boolean> {
       if (findComment(this.comments, id)) return true;
+      const loaded = await this.loadBranch(id);
+      if (!loaded) this.error = "Unable to load the selected comment";
+      return loaded && Boolean(findComment(this.comments, id));
+    },
+    async loadBranch(id: string): Promise<boolean> {
       try {
         const { data } = await api.get<CommentItem>(`/comments/${id}`, { params: { depth: 10 } });
         const index = this.comments.findIndex((comment) => comment.id === data.id);
         if (index >= 0) this.comments[index] = data;
         else this.comments.unshift(data);
-        return Boolean(findComment(this.comments, id));
+        return true;
       } catch {
+        this.error = "Unable to load replies";
         return false;
       }
     },

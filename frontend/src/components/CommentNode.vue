@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, useTemplateRef } from "vue";
 
-import type { CommentItem } from "../types";
+import type { AttachmentItem, CommentItem } from "../types";
 import { avatarInitial, avatarStyle } from "../avatar";
 import { useCommentsStore } from "../stores/comments";
 
@@ -11,6 +11,9 @@ const emit = defineEmits<{ reply: [comment: CommentItem] }>();
 const store = useCommentsStore();
 const lightbox = useTemplateRef<HTMLDialogElement>("lightbox");
 const selectedImage = ref<{ url: string; name: string } | null>(null);
+const selectedText = ref<{ content: string; name: string } | null>(null);
+const previewLoading = ref(false);
+const previewError = ref("");
 
 function voteKey(id: string): string {
   return `vote:${id}`;
@@ -31,7 +34,33 @@ async function copyLink() {
 
 function openImage(url: string, name: string) {
   selectedImage.value = { url, name };
+  selectedText.value = null;
+  previewError.value = "";
   lightbox.value?.showModal();
+}
+
+async function openAttachment(attachment: AttachmentItem) {
+  if (attachment.kind === "image") {
+    openImage(attachment.content_url, attachment.original_name);
+    return;
+  }
+  selectedImage.value = null;
+  selectedText.value = null;
+  previewError.value = "";
+  previewLoading.value = true;
+  lightbox.value?.showModal();
+  try {
+    const response = await fetch(attachment.content_url, { credentials: "same-origin" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    selectedText.value = {
+      content: await response.text(),
+      name: attachment.original_name,
+    };
+  } catch {
+    previewError.value = "Unable to load text preview";
+  } finally {
+    previewLoading.value = false;
+  }
 }
 
 async function cast(value: 1 | -1) {
@@ -97,21 +126,21 @@ async function cast(value: 1 | -1) {
         :key="item.id"
         class="attachment"
         type="button"
-        @click="item.kind === 'image' && openImage(item.content_url, item.original_name)"
+        @click="openAttachment(item)"
       >
         <img v-if="item.kind === 'image'" :src="item.content_url" :alt="item.original_name" />
-        <a
-          v-else
-          :href="item.content_url"
-          target="_blank"
-          rel="noopener noreferrer"
-          @click.stop
-        >📄 {{ item.original_name }} · {{ Math.ceil(item.size / 1024) }} KB</a>
+        <span v-else>📄 {{ item.original_name }} · {{ Math.ceil(item.size / 1024) }} KB</span>
       </button>
     </div>
     <dialog ref="lightbox" class="lightbox" @click.self="lightbox?.close()">
       <button class="dialog-close" type="button" aria-label="Close" @click="lightbox?.close()">×</button>
       <img v-if="selectedImage" :src="selectedImage.url" :alt="selectedImage.name" />
+      <p v-else-if="previewLoading" class="text-preview-state">Loading preview…</p>
+      <p v-else-if="previewError" class="error">{{ previewError }}</p>
+      <section v-else-if="selectedText" class="text-preview">
+        <h3>{{ selectedText.name }}</h3>
+        <pre>{{ selectedText.content }}</pre>
+      </section>
     </dialog>
     <div v-if="comment.replies.length" class="replies">
       <CommentNode
@@ -122,6 +151,11 @@ async function cast(value: 1 | -1) {
         @reply="emit('reply', $event)"
       />
     </div>
-    <p v-else-if="comment.has_more_replies" class="more-replies">More replies are available.</p>
+    <button
+      v-if="comment.has_more_replies"
+      class="more-replies"
+      type="button"
+      @click="store.loadBranch(comment.id)"
+    >Load more replies</button>
   </article>
 </template>

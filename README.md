@@ -40,9 +40,11 @@ The first event-driven milestone is implemented:
 - inline attach control and UTF-8-safe attachment delivery for non-ASCII file names.
 - server-rendered sanitized comment preview with a compact formatting toolbar;
 - Prometheus metrics for HTTP, comments, votes, search and the event pipeline.
-- read-only GraphQL trees with request-scoped batching and query limits.
+- read-only GraphQL trees with request-scoped batching and query limits;
+- Redis-cached comment pages with write-safe namespace invalidation;
+- incremental root pagination, lazy branch expansion and safe in-app TXT previews.
 
-Redis serves CAPTCHA, write rate limiting, the Channels layer and the owner-checked outbox publisher lease; page caching remains later work.
+Redis serves CAPTCHA, write rate limiting, popular-page caching, the Channels layer and the owner-checked outbox publisher lease.
 
 ## Architecture
 
@@ -257,10 +259,8 @@ Mermaid source: [`docs/architecture/db-schema.mmd`](docs/architecture/db-schema.
 
 ## Roadmap
 
-1. read-only GraphQL with batching and complexity limits.
-2. root/reply pagination and popular-page caching.
-3. Playwright end-to-end coverage and service integration tests.
-4. k6 load profiles, million-comment seed data and release documentation.
+1. Playwright end-to-end coverage and service integration tests.
+2. k6 load profiles, million-comment seed data and release documentation.
 
 The attachment milestone also adds optional account avatars stored in object storage. Guest comments use locally generated initial avatars so visitor email addresses are never sent to an external avatar service. Final visual polish follows the functional milestones and keeps the comment feed compact, avatar-led and focused on live discussion.
 
@@ -270,5 +270,5 @@ The attachment milestone also adds optional account avatars stored in object sto
 - refresh-token reuse is not yet tracked server-side;
 - retry backoff blocks the affected consumer partition; a dedicated delayed-retry scheduler is deferred;
 - orphaned pending object cleanup is not scheduled yet;
-- large branches are bounded by response depth, but reply pagination is not implemented yet;
+- large branches are bounded by response depth and expanded lazily rather than returned without a limit;
 - production deployment and load-test results are not available yet.

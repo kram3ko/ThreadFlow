@@ -3,6 +3,7 @@ from django.db.models import F
 from rest_framework.request import Request
 from rest_framework.throttling import BaseThrottle
 
+from apps.comments.cache import invalidate_comment_cache
 from apps.comments.models import Comment, CommentVote
 
 
@@ -38,4 +39,5 @@ def apply_vote(*, comment: Comment, identity: str, value: int) -> int:
     if delta:
         Comment.objects.filter(id=locked_comment.id).update(score=F("score") + delta)
     locked_comment.refresh_from_db(fields=["score"])
+    transaction.on_commit(invalidate_comment_cache)
     return locked_comment.score

@@ -3,6 +3,7 @@ from typing import Any
 
 from django.db import transaction
 
+from apps.comments.cache import invalidate_comment_cache
 from apps.comments.html import sanitize_comment_html
 from apps.comments.models import Comment
 from apps.comments.realtime.publisher import comment_payload
@@ -57,5 +58,6 @@ def create_comment(
             "comment": comment_payload(comment),
         },
     )
+    transaction.on_commit(invalidate_comment_cache)
     transaction.on_commit(lambda: COMMENTS_CREATED.labels(kind).inc())
     return comment
