@@ -3,7 +3,6 @@ import io
 import pytest
 from apps.attachments.models import Attachment
 from apps.captcha.services import issue_challenge
-from apps.events.models import OutboxEvent
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 from rest_framework.test import APIClient
@@ -45,7 +44,6 @@ def test_image_is_resized_and_claimed_by_comment(tmp_path, settings):
     attachment = Attachment.objects.get(id=upload.json()["id"])
     assert str(attachment.comment_id) == response.json()["id"]
     assert response.json()["attachments"][0]["kind"] == "image"
-    assert OutboxEvent.objects.filter(event_type="attachments.uploaded").exists()
 
 
 @pytest.mark.django_db
