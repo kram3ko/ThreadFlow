@@ -34,6 +34,10 @@ The first event-driven milestone is implemented:
 - independent, idempotent search and WebSocket consumer groups, retry and DLQ topics;
 - Elasticsearch fuzzy full-text search, highlighting, date/author filters and PostgreSQL fallback;
 - complete index rebuild tooling with PostgreSQL as the source of truth.
+- comment up/down voting with per-identity deduplication and live `comment.voted` updates;
+- prefix-aware search with debounced type-ahead, result counts and jump-to-comment;
+- sign in with either a username or an email address;
+- inline attach control and UTF-8-safe attachment delivery for non-ASCII file names.
 
 GraphQL and Prometheus remain locked dependencies for later milestones. Redis serves CAPTCHA, comment rate limiting, the Channels layer and the outbox publisher lock; page caching and refresh-token revocation remain later work.
 
@@ -146,11 +150,12 @@ Interactive and machine-readable documentation:
 | `POST` | `/api/comments` | Create a root comment |
 | `GET` | `/api/comments/{id}` | Read one branch |
 | `POST` | `/api/comments/{id}/replies` | Reply to a comment |
+| `POST` | `/api/comments/{id}/vote` | Up/down vote a comment (`value` is `1`, `-1` or `0`) |
 | `POST` | `/api/attachments` | Validate and upload an attachment or avatar |
 | `GET` | `/api/attachments/{id}/content` | Safely stream stored content |
 | `GET` | `/api/search` | Search comments with PostgreSQL fallback |
 
-Live comment commands and events use `ws://localhost:8080/ws/comments`; see [`docs/realtime/websocket.md`](docs/realtime/websocket.md) for the typed contract and event registry.
+Live comment commands and events use `ws://localhost:8080/ws/comments`; `comment.created` and `comment.voted` are pushed to subscribers. An expired or invalid token degrades to a guest connection instead of dropping the socket. See [`docs/realtime/websocket.md`](docs/realtime/websocket.md) for the typed contract and event registry.
 
 List parameters:
 
@@ -226,6 +231,8 @@ Comments use an adjacency list plus denormalized branch metadata:
 
 Root comments are cursor-paginated. Compound indexes support stable ordering by date, author name and author email, using the UUID as the tie-breaker.
 
+Each comment keeps a denormalized `score`; `CommentVote` records one vote per identity (`user:<pk>` or `guest:<ip>`) so a single voter cannot inflate a comment.
+
 `Attachment` stores object metadata while bytes live in MinIO/S3. `OutboxEvent` is written with the aggregate transaction; `ProcessedEvent` is unique per event and consumer. See [`docs/architecture/events.md`](docs/architecture/events.md).
 
 ## Git workflow
@@ -247,6 +254,7 @@ The attachment milestone also adds optional account avatars stored in object sto
 
 ## MVP limitations
 
+- guest vote deduplication is keyed on client IP, so guests behind one NAT share a vote;
 - refresh-token reuse is not yet tracked server-side;
 - retry backoff blocks the affected consumer partition; a dedicated delayed-retry scheduler is deferred;
 - orphaned pending object cleanup is not scheduled yet;

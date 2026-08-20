@@ -82,7 +82,10 @@ async function uploadAvatar(event: Event) {
       </button>
     </div>
     <form class="auth-form modal-form" @submit.prevent="submit">
-      <label>Username <input v-model="draft.username" required autocomplete="username" /></label>
+      <label>
+        {{ mode === "login" ? "Username or email" : "Username" }}
+        <input v-model="draft.username" required autocomplete="username" />
+      </label>
       <label v-if="mode === 'register'">
         Email <input v-model="draft.email" required type="email" autocomplete="email" />
       </label>

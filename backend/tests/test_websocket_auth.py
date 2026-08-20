@@ -25,12 +25,11 @@ async def test_websocket_access_cookie_resolves_active_user(settings):
     )
 
     assert captured["user"].id == user.id
-    assert captured["auth_error"] is False
 
 
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
-async def test_websocket_invalid_cookie_is_marked_as_auth_error(settings):
+async def test_websocket_invalid_cookie_falls_back_to_anonymous(settings):
     captured = {}
 
     async def app(scope, receive, send):
@@ -47,4 +46,3 @@ async def test_websocket_invalid_cookie_is_marked_as_auth_error(settings):
     )
 
     assert captured["user"].is_anonymous
-    assert captured["auth_error"] is True

@@ -10,6 +10,7 @@ export enum CommentOperation {
 
 export enum CommentEvent {
   Created = "comment.created",
+  Voted = "comment.voted",
 }
 
 export enum SocketMessageType {

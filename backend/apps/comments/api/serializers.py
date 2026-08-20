@@ -14,9 +14,15 @@ class AttachmentClaimSerializer(serializers.Serializer):
     token = serializers.CharField(max_length=64)
 
 
+class VoteSerializer(serializers.Serializer):
+    value = serializers.ChoiceField(choices=[-1, 0, 1])
+
+
 class CommentCreateSerializer(serializers.Serializer):
-    username = serializers.RegexField(r"^[A-Za-z0-9_]+$", max_length=150, required=False)
-    email = serializers.EmailField(required=False)
+    username = serializers.RegexField(
+        r"^[A-Za-z0-9_]+$", max_length=150, required=False, allow_blank=True
+    )
+    email = serializers.EmailField(required=False, allow_blank=True)
     homepage = serializers.URLField(required=False, allow_blank=True, default="")
     text = serializers.CharField(max_length=10_000, trim_whitespace=True)
     captcha_id = serializers.UUIDField(write_only=True)
@@ -84,6 +90,7 @@ class CommentSerializer(serializers.ModelSerializer):
             "parent_id",
             "root_id",
             "depth",
+            "score",
             "created_at",
             "updated_at",
             "has_more_replies",

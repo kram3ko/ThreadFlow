@@ -71,15 +71,35 @@ def search_comments(
     sort: str = "relevance",
     direction: str = "desc",
 ) -> tuple[list[SearchResult], str]:
+    """Search comments in Elasticsearch, falling back to PostgreSQL on failure.
+
+    The query combines whole-token matching with typo tolerance and a
+    phrase_prefix clause so a partial last word ("websock") also matches longer
+    tokens ("websocket").
+    """
     must: list[dict[str, Any]] = []
     filters: list[dict[str, Any]] = []
     if query:
         must.append(
             {
-                "multi_match": {
-                    "query": query,
-                    "fields": ["text^2", "username", "email"],
-                    "fuzziness": "AUTO",
+                "bool": {
+                    "minimum_should_match": 1,
+                    "should": [
+                        {
+                            "multi_match": {
+                                "query": query,
+                                "fields": ["text^2", "username", "email"],
+                                "fuzziness": "AUTO",
+                            }
+                        },
+                        {
+                            "multi_match": {
+                                "query": query,
+                                "type": "phrase_prefix",
+                                "fields": ["text^2", "username"],
+                            }
+                        },
+                    ],
                 }
             }
         )

@@ -46,7 +46,7 @@ class RegisterSerializer(serializers.Serializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField(max_length=150)
+    username = serializers.CharField(max_length=254, help_text="Username or email address.")
     password = serializers.CharField(max_length=128, trim_whitespace=False)
 
 

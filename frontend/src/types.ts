@@ -8,6 +8,7 @@ export interface CommentItem {
   parent_id: string | null;
   root_id: string;
   depth: number;
+  score: number;
   created_at: string;
   has_more_replies: boolean;
   avatar_url: string | null;

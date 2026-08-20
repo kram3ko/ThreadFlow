@@ -19,6 +19,12 @@ def _active_user(token: str) -> User | None:
 
 
 class CookieJWTWebSocketMiddleware:
+    """Resolve the JWT cookie to a user for WebSocket scopes.
+
+    The public feed accepts guests, so an expired or invalid token degrades to
+    AnonymousUser instead of rejecting the connection.
+    """
+
     def __init__(self, app: Any) -> None:
         self.app = app
 
@@ -30,10 +36,6 @@ class CookieJWTWebSocketMiddleware:
                 break
 
         morsel = cookie.get(settings.ACCESS_COOKIE_NAME)
-        if morsel is None:
-            scope["user"] = AnonymousUser()
-        else:
-            user = await _active_user(morsel.value)
-            scope["user"] = user or AnonymousUser()
-            scope["auth_error"] = user is None
+        user = await _active_user(morsel.value) if morsel is not None else None
+        scope["user"] = user or AnonymousUser()
         await self.app(scope, receive, send)

@@ -44,6 +44,7 @@ def comment_payload(comment: Comment) -> dict[str, Any]:
         "parent_id": str(comment.parent_id) if comment.parent_id else None,
         "root_id": str(comment.root_id or comment.id),
         "depth": comment.depth,
+        "score": comment.score,
         "created_at": comment.created_at.isoformat(),
         "updated_at": comment.updated_at.isoformat(),
         "has_more_replies": False,
@@ -69,4 +70,20 @@ def publish_comment_created(comment: Comment, *, event_id: str | None = None) ->
     async_to_sync(channel_layer.group_send)(
         PUBLIC_COMMENT_GROUP,
         {"type": CommentEvent.CREATED, "envelope": envelope},
+    )
+
+
+def publish_comment_voted(comment_id: str, score: int) -> None:
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        return
+    envelope = {
+        "type": SocketMessageType.EVENT,
+        "event": CommentEvent.VOTED,
+        "event_id": str(uuid.uuid4()),
+        "data": {"comment_id": comment_id, "score": score},
+    }
+    async_to_sync(channel_layer.group_send)(
+        PUBLIC_COMMENT_GROUP,
+        {"type": CommentEvent.VOTED, "envelope": envelope},
     )

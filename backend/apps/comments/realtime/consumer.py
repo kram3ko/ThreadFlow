@@ -28,9 +28,6 @@ class CommentSocketConsumer(AsyncJsonWebsocketConsumer):
     subscribed = False
 
     async def connect(self) -> None:
-        if self.scope.get("auth_error"):
-            await self.close(code=4401)
-            return
         await self.accept()
 
     async def disconnect(self, code: int) -> None:
@@ -113,6 +110,9 @@ class CommentSocketConsumer(AsyncJsonWebsocketConsumer):
         return cast(User | AnonymousUser, self.scope.get("user", AnonymousUser()))
 
     async def comment_created(self, event: dict[str, Any]) -> None:
+        await self.send_json(event["envelope"])
+
+    async def comment_voted(self, event: dict[str, Any]) -> None:
         await self.send_json(event["envelope"])
 
     async def search_indexed(self, event: dict[str, Any]) -> None:

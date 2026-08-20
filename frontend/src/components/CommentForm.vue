@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { onMounted, reactive, ref, useTemplateRef } from "vue";
 
 import { api } from "../api";
 import type { AuthUser, CaptchaChallenge, CommentDraft, CommentItem } from "../types";
@@ -14,6 +14,7 @@ const submitting = ref(false);
 const captcha = ref<CaptchaChallenge | null>(null);
 const captchaLoading = ref(false);
 const attachment = ref<File | null>(null);
+const fileInput = useTemplateRef<HTMLInputElement>("fileInput");
 const uploadError = ref("");
 const draft = reactive<CommentDraft>({
   username: "",
@@ -31,8 +32,28 @@ async function loadCaptcha() {
     captcha.value = data;
     draft.captcha_id = data.id;
     draft.captcha_answer = "";
+  } catch {
+    captcha.value = null;
   } finally {
     captchaLoading.value = false;
+  }
+}
+
+function clearAttachment() {
+  attachment.value = null;
+  if (fileInput.value) fileInput.value.value = "";
+}
+
+async function uploadAttachment(file: File): Promise<{ id: string; token: string } | null> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("purpose", "comment");
+  try {
+    const { data } = await api.post<{ id: string; claim_token: string }>("/attachments", form);
+    return { id: data.id, token: data.claim_token };
+  } catch {
+    uploadError.value = "Unable to upload the attachment.";
+    return null;
   }
 }
 
@@ -42,24 +63,17 @@ async function submit() {
   try {
     const payload: CommentDraft = { ...draft };
     if (attachment.value) {
-      const form = new FormData();
-      form.append("file", attachment.value);
-      form.append("purpose", "comment");
-      const { data } = await api.post<{ id: string; claim_token: string }>(
-        "/attachments",
-        form,
-      );
-      payload.attachments = [{ id: data.id, token: data.claim_token }];
+      const claim = await uploadAttachment(attachment.value);
+      if (!claim) return;
+      payload.attachments = [claim];
     }
     const success = await props.submit(payload, props.parent?.id);
     await loadCaptcha();
     if (success) {
       draft.text = "";
-      attachment.value = null;
+      clearAttachment();
       emit("submitted");
     }
-  } catch {
-    uploadError.value = "Unable to upload the attachment.";
   } finally {
     submitting.value = false;
   }
@@ -86,11 +100,21 @@ onMounted(() => void loadCaptcha());
       <label class="wide">Comment <textarea v-model="draft.text" required rows="5" /></label>
       <label class="wide">
         Attachment (JPG, PNG, GIF or TXT)
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/gif,text/plain,.txt"
-          @change="attachment = ($event.target as HTMLInputElement).files?.[0] ?? null"
-        />
+        <span class="attachment-control">
+          <input
+            ref="fileInput"
+            type="file"
+            accept="image/jpeg,image/png,image/gif,text/plain,.txt"
+            @change="attachment = ($event.target as HTMLInputElement).files?.[0] ?? null"
+          />
+          <button
+            v-if="attachment"
+            type="button"
+            class="attachment-remove"
+            aria-label="Remove attachment"
+            @click="clearAttachment"
+          >×</button>
+        </span>
       </label>
       <div class="captcha-field wide">
         <img v-if="captcha" :src="captcha.image_data" alt="CAPTCHA challenge" width="190" height="64" />

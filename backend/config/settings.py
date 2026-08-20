@@ -204,10 +204,13 @@ CACHES = {
     }
 }
 
+# RedisPubSubChannelLayer keeps a stable subscription; the classic
+# RedisChannelLayer's blocking receive periodically raises redis TimeoutError
+# on idle sockets and drops the WebSocket.
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": (
-            "channels_redis.core.RedisChannelLayer"
+            "channels_redis.pubsub.RedisPubSubChannelLayer"
             if REDIS_URL
             else "channels.layers.InMemoryChannelLayer"
         ),
@@ -215,8 +218,7 @@ CHANNEL_LAYERS = {
             {
                 "CONFIG": {
                     "hosts": [REDIS_URL],
-                    "capacity": int(os.getenv("WS_CHANNEL_CAPACITY", "1000")),
-                    "expiry": int(os.getenv("WS_EVENT_EXPIRY_SECONDS", "60")),
+                    "prefix": os.getenv("WS_CHANNEL_PREFIX", "threadflow:ws"),
                 }
             }
             if REDIS_URL

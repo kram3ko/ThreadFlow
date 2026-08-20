@@ -25,6 +25,7 @@ def test_openapi_schema_documents_current_routes(api_client):
         "/api/comments",
         "/api/comments/{id}",
         "/api/comments/{id}/replies",
+        "/api/comments/{id}/vote",
         "/api/health",
         "/api/search",
     }

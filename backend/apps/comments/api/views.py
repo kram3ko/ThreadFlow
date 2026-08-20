@@ -11,9 +11,15 @@ from rest_framework.response import Response
 from apps.attachments.models import Attachment, AttachmentPurpose
 from apps.comments.api.docs import document_comment_viewset
 from apps.comments.api.pagination import CommentCursorPagination
-from apps.comments.api.serializers import CommentCreateSerializer, CommentSerializer
+from apps.comments.api.serializers import (
+    CommentCreateSerializer,
+    CommentSerializer,
+    VoteSerializer,
+)
 from apps.comments.models import Comment
 from apps.comments.rate_limit import CommentRateThrottle
+from apps.comments.realtime.publisher import publish_comment_voted
+from apps.comments.voting import apply_vote, voter_identity
 
 
 def serialize_tree(roots, descendants):
@@ -87,6 +93,19 @@ class CommentViewSet(
         serializer.is_valid(raise_exception=True)
         comment = serializer.save()
         return Response(CommentSerializer(comment).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="vote")
+    def vote(self, request, *args, **kwargs):
+        comment = get_object_or_404(self.get_queryset(), id=kwargs["pk"])
+        serializer = VoteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        score = apply_vote(
+            comment=comment,
+            identity=voter_identity(request),
+            value=serializer.validated_data["value"],
+        )
+        publish_comment_voted(str(comment.id), score)
+        return Response({"id": str(comment.id), "score": score})
 
     def retrieve(self, request, *args, **kwargs):
         comment = get_object_or_404(

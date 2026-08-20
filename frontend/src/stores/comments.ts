@@ -1,5 +1,6 @@
 import axios from "axios";
 import { defineStore } from "pinia";
+import { markRaw } from "vue";
 
 import { api } from "../api";
 import { CommentOperation, type SocketStatus } from "../realtime/contracts";
@@ -79,22 +80,55 @@ export const useCommentsStore = defineStore("comments", {
         return false;
       }
     },
+    // markRaw keeps CommentsSocket outside Pinia's reactive Proxy, which cannot
+    // read the class's private (`#`) fields.
     startRealtime() {
       if (this.socket) return;
       let openedBefore = false;
-      this.socket = new CommentsSocket(
-        (comment) => this.mergeComment(comment),
-        (status) => {
-          const reconnect = status === "open" && openedBefore;
-          this.socketStatus = status;
-          if (status === "open") openedBefore = true;
-          if (reconnect) void this.load(this.sort, this.direction);
-        },
+      this.socket = markRaw(
+        new CommentsSocket(
+          (comment) => this.mergeComment(comment),
+          (status) => {
+            const reconnect = status === "open" && openedBefore;
+            this.socketStatus = status;
+            if (status === "open") openedBefore = true;
+            if (reconnect) void this.load(this.sort, this.direction);
+          },
+          (commentId, score) => this.applyScore(commentId, score),
+        ),
       );
       this.socket.connect();
     },
     reconnectRealtime() {
       this.socket?.reconnect();
+    },
+    async vote(id: string, value: -1 | 0 | 1) {
+      try {
+        const { data } = await api.post<{ id: string; score: number }>(
+          `/comments/${id}/vote`,
+          { value },
+        );
+        this.applyScore(data.id, data.score);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    applyScore(id: string, score: number) {
+      const comment = findComment(this.comments, id);
+      if (comment) comment.score = score;
+    },
+    async ensureLoaded(id: string): Promise<boolean> {
+      if (findComment(this.comments, id)) return true;
+      try {
+        const { data } = await api.get<CommentItem>(`/comments/${id}`, { params: { depth: 10 } });
+        const index = this.comments.findIndex((comment) => comment.id === data.id);
+        if (index >= 0) this.comments[index] = data;
+        else this.comments.unshift(data);
+        return Boolean(findComment(this.comments, id));
+      } catch {
+        return false;
+      }
     },
     mergeComment(comment: CommentItem) {
       if (findComment(this.comments, comment.id)) return;
