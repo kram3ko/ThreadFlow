@@ -9,6 +9,7 @@ from django.db import IntegrityError
 from apps.events.contracts import EventEnvelope
 from apps.events.kafka import producer, publish_event
 from apps.events.models import ProcessedEvent
+from apps.observability.metrics import EVENTS_PROCESSED
 
 logger = logging.getLogger(__name__)
 MAX_RETRY_BACKOFF_STEPS = 6
@@ -26,6 +27,7 @@ def process_once(
         ProcessedEvent.objects.create(event_id=event_id, consumer_name=consumer_name)
     except IntegrityError:
         return False
+    EVENTS_PROCESSED.labels(consumer_name, envelope.event_type).inc()
     return True
 
 

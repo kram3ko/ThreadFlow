@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, useTemplateRef } from "vue";
+import { nextTick, onMounted, reactive, ref, useTemplateRef } from "vue";
 
 import { api } from "../api";
 import type { AuthUser, CaptchaChallenge, CommentDraft, CommentItem } from "../types";
@@ -15,7 +15,11 @@ const captcha = ref<CaptchaChallenge | null>(null);
 const captchaLoading = ref(false);
 const attachment = ref<File | null>(null);
 const fileInput = useTemplateRef<HTMLInputElement>("fileInput");
+const commentInput = useTemplateRef<HTMLTextAreaElement>("commentInput");
 const uploadError = ref("");
+const previewing = ref(false);
+const previewHtml = ref("");
+const previewError = ref("");
 const draft = reactive<CommentDraft>({
   username: "",
   email: "",
@@ -42,6 +46,43 @@ async function loadCaptcha() {
 function clearAttachment() {
   attachment.value = null;
   if (fileInput.value) fileInput.value.value = "";
+}
+
+function wrap(tag: string, attributes = "") {
+  const el = commentInput.value;
+  if (!el) return;
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  const open = attributes ? `<${tag} ${attributes}>` : `<${tag}>`;
+  const close = `</${tag}>`;
+  draft.text = draft.text.slice(0, start) + open + draft.text.slice(start, end) + close + draft.text.slice(end);
+  void nextTick(() => {
+    el.focus();
+    const caret = start + open.length;
+    el.setSelectionRange(caret, caret + (end - start));
+  });
+}
+
+function insertLink() {
+  const url = window.prompt("Link URL", "https://");
+  if (!url) return;
+  wrap("a", `href="${url.replaceAll('"', "%22")}"`);
+}
+
+async function togglePreview() {
+  if (previewing.value) {
+    previewing.value = false;
+    return;
+  }
+  previewError.value = "";
+  try {
+    const { data } = await api.post<{ html: string }>("/comments/preview", { text: draft.text });
+    previewHtml.value = data.html;
+  } catch {
+    previewHtml.value = "";
+    previewError.value = "Preview failed — check that your tags are closed.";
+  }
+  previewing.value = true;
 }
 
 async function uploadAttachment(file: File): Promise<{ id: string; token: string } | null> {
@@ -71,6 +112,8 @@ async function submit() {
     await loadCaptcha();
     if (success) {
       draft.text = "";
+      previewing.value = false;
+      previewHtml.value = "";
       clearAttachment();
       emit("submitted");
     }
@@ -97,7 +140,23 @@ onMounted(() => void loadCaptcha());
         <label>Email <input v-model="draft.email" required type="email" /></label>
       </template>
       <label class="wide">Homepage <input v-model="draft.homepage" type="url" /></label>
-      <label class="wide">Comment <textarea v-model="draft.text" required rows="5" /></label>
+      <div class="wide comment-editor">
+        <span class="editor-label">Comment</span>
+        <div class="editor-toolbar" role="group" aria-label="Formatting">
+          <button type="button" title="Bold" @click="wrap('strong')"><strong>B</strong></button>
+          <button type="button" title="Italic" @click="wrap('i')"><em>i</em></button>
+          <button type="button" title="Code" @click="wrap('code')">&lt;/&gt;</button>
+          <button type="button" title="Link" @click="insertLink">link</button>
+          <button type="button" class="preview-btn" @click="togglePreview">
+            {{ previewing ? "Hide preview" : "Preview" }}
+          </button>
+        </div>
+        <textarea ref="commentInput" v-model="draft.text" required rows="5" />
+        <div v-if="previewing" class="comment-preview">
+          <p v-if="previewError" class="error">{{ previewError }}</p>
+          <div v-else class="comment-text" v-html="previewHtml" />
+        </div>
+      </div>
       <label class="wide">
         Attachment (JPG, PNG, GIF or TXT)
         <span class="attachment-control">

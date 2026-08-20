@@ -7,7 +7,12 @@ from drf_spectacular.utils import (
     extend_schema_view,
 )
 
-from apps.comments.api.serializers import CommentCreateSerializer, CommentSerializer
+from apps.comments.api.serializers import (
+    CommentCreateSerializer,
+    CommentSerializer,
+    PreviewResultSerializer,
+    PreviewSerializer,
+)
 
 COMMENT_EXAMPLE = OpenApiExample(
     "Guest comment",
@@ -93,6 +98,16 @@ document_comment_viewset = extend_schema_view(
             404: OpenApiResponse(ERROR_RESPONSE, description="Parent comment not found"),
         },
         examples=[COMMENT_EXAMPLE],
+        tags=["comments"],
+    ),
+    preview=extend_schema(
+        summary="Render sanitized comment HTML",
+        description="Returns the same sanitized HTML that a submitted comment would store.",
+        request=PreviewSerializer,
+        responses={
+            200: PreviewResultSerializer,
+            400: OpenApiResponse(ERROR_RESPONSE, description="Validation failed"),
+        },
         tags=["comments"],
     ),
 )

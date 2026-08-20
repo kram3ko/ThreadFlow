@@ -18,6 +18,14 @@ class VoteSerializer(serializers.Serializer):
     value = serializers.ChoiceField(choices=[-1, 0, 1])
 
 
+class PreviewSerializer(serializers.Serializer):
+    text = serializers.CharField(max_length=10_000, trim_whitespace=False)
+
+
+class PreviewResultSerializer(serializers.Serializer):
+    html = serializers.CharField()
+
+
 class CommentCreateSerializer(serializers.Serializer):
     username = serializers.RegexField(
         r"^[A-Za-z0-9_]+$", max_length=150, required=False, allow_blank=True

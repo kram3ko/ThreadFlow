@@ -10,6 +10,7 @@ from django.utils import timezone
 from apps.events.contracts import EventEnvelope, EventType
 from apps.events.kafka import producer, publish_event
 from apps.events.models import OutboxEvent
+from apps.observability.metrics import EVENTS_PUBLISHED
 
 logger = logging.getLogger(__name__)
 LOCK_KEY = "outbox:publisher:lock"
@@ -63,6 +64,7 @@ def publish_pending_batch() -> int:
                     attempts=F("attempts") + 1,
                     last_error="",
                 )
+            EVENTS_PUBLISHED.labels(event.event_type).inc()
             sent += 1
     finally:
         cache.delete(LOCK_KEY)

@@ -253,6 +253,20 @@ services:
     volumes:
       - static_data:/srv/static:ro
 
+  prometheus:
+    image: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.1.0}
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT_HOST:-9090}:9090"
+    depends_on:
+      backend:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   redis_data:
@@ -260,3 +274,4 @@ volumes:
   elasticsearch_data:
   minio_data:
   static_data:
+  prometheus_data:

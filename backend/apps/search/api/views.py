@@ -5,6 +5,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.observability.metrics import SEARCH_QUERIES
 from apps.search.api.serializers import SearchQuerySerializer, SearchResultSerializer
 from apps.search.services import search_comments
 
@@ -27,4 +28,5 @@ class SearchView(APIView):
             sort=query.validated_data["sort"],
             direction=query.validated_data["direction"],
         )
+        SEARCH_QUERIES.labels(source).inc()
         return Response({"source": source, "results": [asdict(item) for item in results]})

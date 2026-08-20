@@ -74,7 +74,7 @@ def test_initial_text_storage_is_safe(api_client):
     assert response.status_code == 201
     assert (
         response.json()["html_text"]
-        == '<strong>Safe</strong><a rel="nofollow noopener noreferrer">link</a>'
+        == '<strong>Safe</strong><a target="_blank" rel="nofollow noopener noreferrer">link</a>'
     )
     assert response.json()["text"] == "Safelink"
 

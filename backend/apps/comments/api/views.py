@@ -14,12 +14,15 @@ from apps.comments.api.pagination import CommentCursorPagination
 from apps.comments.api.serializers import (
     CommentCreateSerializer,
     CommentSerializer,
+    PreviewSerializer,
     VoteSerializer,
 )
+from apps.comments.html import sanitize_comment_html
 from apps.comments.models import Comment
 from apps.comments.rate_limit import CommentRateThrottle
 from apps.comments.realtime.publisher import publish_comment_voted
 from apps.comments.voting import apply_vote, voter_identity
+from apps.observability.metrics import COMMENT_VOTES
 
 
 def serialize_tree(roots, descendants):
@@ -94,6 +97,13 @@ class CommentViewSet(
         comment = serializer.save()
         return Response(CommentSerializer(comment).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=False, methods=["post"], url_path="preview")
+    def preview(self, request, *args, **kwargs):
+        serializer = PreviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        html, _ = sanitize_comment_html(serializer.validated_data["text"])
+        return Response({"html": html})
+
     @action(detail=True, methods=["post"], url_path="vote")
     def vote(self, request, *args, **kwargs):
         comment = get_object_or_404(self.get_queryset(), id=kwargs["pk"])
@@ -105,6 +115,7 @@ class CommentViewSet(
             value=serializer.validated_data["value"],
         )
         publish_comment_voted(str(comment.id), score)
+        COMMENT_VOTES.inc()
         return Response({"id": str(comment.id), "score": score})
 
     def retrieve(self, request, *args, **kwargs):

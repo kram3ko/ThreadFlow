@@ -75,6 +75,7 @@ KAFKA_TOPICS = {
 }
 OUTBOX_BATCH_SIZE = int(os.getenv("OUTBOX_BATCH_SIZE", "100"))
 OUTBOX_POLL_INTERVAL_SECONDS = float(os.getenv("OUTBOX_POLL_INTERVAL_SECONDS", "1"))
+METRICS_PORT = int(os.getenv("METRICS_PORT", "8001"))
 ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
 ELASTICSEARCH_INDEX = os.getenv("ELASTICSEARCH_INDEX", "threadflow-comments-v1")
 ELASTICSEARCH_REQUEST_TIMEOUT_SECONDS = int(
@@ -101,9 +102,11 @@ INSTALLED_APPS = [
     "apps.attachments",
     "apps.events",
     "apps.search",
+    "apps.observability",
 ]
 
 MIDDLEWARE = [
+    "apps.observability.middleware.MetricsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "corsheaders.middleware.CorsMiddleware",

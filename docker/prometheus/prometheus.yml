@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: threadflow-web
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["backend:8000"]
+
+  - job_name: threadflow-consumers
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "outbox-publisher:8001"
+          - "search-consumer:8001"
+          - "websocket-consumer:8001"

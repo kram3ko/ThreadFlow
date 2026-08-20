@@ -23,6 +23,7 @@ def test_openapi_schema_documents_current_routes(api_client):
         "/api/attachments/{id}/content",
         "/api/captcha",
         "/api/comments",
+        "/api/comments/preview",
         "/api/comments/{id}",
         "/api/comments/{id}/replies",
         "/api/comments/{id}/vote",

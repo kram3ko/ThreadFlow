@@ -8,6 +8,7 @@ from apps.comments.models import Comment
 from apps.comments.realtime.publisher import comment_payload
 from apps.events.contracts import EventType
 from apps.events.models import OutboxEvent
+from apps.observability.metrics import COMMENTS_CREATED
 
 
 @transaction.atomic
@@ -46,13 +47,15 @@ def create_comment(
         from apps.attachments.services import claim_attachments
 
         claim_attachments(claims=attachments, comment=comment, user=user)
+    kind = "reply" if comment.parent_id else "root"
     OutboxEvent.record(
         event_type=EventType.COMMENT_CREATED,
         aggregate_id=comment.id,
         payload={
             "root_id": str(comment.root_id or comment.id),
-            "kind": "reply" if comment.parent_id else "root",
+            "kind": kind,
             "comment": comment_payload(comment),
         },
     )
+    COMMENTS_CREATED.labels(kind).inc()
     return comment

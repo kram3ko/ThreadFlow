@@ -68,6 +68,14 @@ button, input, textarea, select { font: inherit; }
 .captcha-field { display: flex; align-items: end; gap: 14px; }
 .captcha-field img { flex: 0 0 auto; border: 1px solid #d7dbd2; border-radius: 9px; }
 .captcha-field label { flex: 1; }
+.comment-editor { display: grid; gap: 7px; }
+.editor-label { color: var(--muted); font-size: 13px; font-weight: 700; }
+.editor-toolbar { display: flex; gap: 6px; }
+.editor-toolbar button { border: 1px solid var(--border); background: var(--surface-soft); color: var(--text); border-radius: 7px; padding: 4px 11px; font-size: 13px; cursor: pointer; }
+.editor-toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+.editor-toolbar .preview-btn { margin-left: auto; font-weight: 700; }
+.comment-preview { border: 1px solid var(--divider); border-radius: 9px; background: var(--surface-soft); padding: 12px 14px; }
+.comment-preview .comment-text { padding: 0; }
 input, textarea, select { width: 100%; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-soft); padding: 11px 12px; color: var(--text); transition: border-color .15s, box-shadow .15s; }
 input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 select { appearance: none; cursor: pointer; padding-right: 32px; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23808a83' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>"); background-repeat: no-repeat; background-position: right 11px center; }
