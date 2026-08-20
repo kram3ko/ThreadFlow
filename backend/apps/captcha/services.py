@@ -71,14 +71,20 @@ def _render_png(answer: str) -> bytes:
     return output.getvalue()
 
 
-def issue_challenge(*, answer: str | None = None) -> CaptchaChallenge:
+def store_challenge(*, answer: str) -> uuid.UUID:
     challenge_id = uuid.uuid4()
+    timeout = settings.CAPTCHA_TTL_SECONDS
+    cache.set(_answer_key(challenge_id), _answer_digest(challenge_id, answer), timeout)
+    cache.set(_attempts_key(challenge_id), 0, timeout)
+    return challenge_id
+
+
+def issue_challenge(*, answer: str | None = None) -> CaptchaChallenge:
     resolved_answer = answer or "".join(
         secrets.choice(CAPTCHA_ALPHABET) for _ in range(CAPTCHA_LENGTH)
     )
+    challenge_id = store_challenge(answer=resolved_answer)
     timeout = settings.CAPTCHA_TTL_SECONDS
-    cache.set(_answer_key(challenge_id), _answer_digest(challenge_id, resolved_answer), timeout)
-    cache.set(_attempts_key(challenge_id), 0, timeout)
     encoded = base64.b64encode(_render_png(resolved_answer)).decode("ascii")
     return CaptchaChallenge(
         id=challenge_id,

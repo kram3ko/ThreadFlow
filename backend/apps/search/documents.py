@@ -2,6 +2,7 @@ from typing import Any
 
 from django.conf import settings
 from elasticsearch import Elasticsearch
+from elasticsearch.helpers import bulk
 
 from apps.comments.models import Comment
 
@@ -54,3 +55,31 @@ def index_comment(comment_id: str, instance: Elasticsearch | None = None) -> Non
         document=comment_document(comment),
         refresh=False,
     )
+
+
+def rebuild_index(instance: Elasticsearch | None = None, *, chunk_size: int = 1_000) -> int:
+    instance = instance or client()
+    instance.indices.delete(index=settings.ELASTICSEARCH_INDEX, ignore_unavailable=True)
+    instance.indices.create(
+        index=settings.ELASTICSEARCH_INDEX,
+        mappings=INDEX_MAPPING["mappings"],
+    )
+    comments = Comment.objects.only(
+        "id",
+        "search_text",
+        "author_name",
+        "author_email",
+        "created_at",
+        "root_id",
+    ).iterator(chunk_size=chunk_size)
+    actions = (
+        {
+            "_index": settings.ELASTICSEARCH_INDEX,
+            "_id": str(comment.id),
+            "_source": comment_document(comment),
+        }
+        for comment in comments
+    )
+    indexed, _ = bulk(instance, actions, chunk_size=chunk_size)
+    instance.indices.refresh(index=settings.ELASTICSEARCH_INDEX)
+    return indexed
