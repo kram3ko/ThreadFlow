@@ -7,7 +7,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.attachments.api.serializers import AttachmentSerializer, AttachmentUploadSerializer
+from apps.attachments.api.serializers import (
+    AttachmentSerializer,
+    AttachmentUploadResultSerializer,
+    AttachmentUploadSerializer,
+)
 from apps.attachments.models import Attachment
 
 
@@ -15,7 +19,10 @@ class AttachmentUploadView(APIView):
     permission_classes = (AllowAny,)
     parser_classes = (MultiPartParser,)
 
-    @extend_schema(request=AttachmentUploadSerializer, responses={201: AttachmentSerializer})
+    @extend_schema(
+        request=AttachmentUploadSerializer,
+        responses={201: AttachmentUploadResultSerializer},
+    )
     def post(self, request):
         serializer = AttachmentUploadSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)

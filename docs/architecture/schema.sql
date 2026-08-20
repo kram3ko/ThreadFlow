@@ -239,6 +239,14 @@ ALTER TABLE ONLY public.comments_commentvote
 
 
 --
+-- Name: comments_commentvote comment_vote_value_valid; Type: CHECK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.comments_commentvote
+    ADD CONSTRAINT comment_vote_value_valid CHECK ((value = ANY (ARRAY['-1'::smallint, '1'::smallint])));
+
+
+--
 -- Name: accounts_user_email_b2644a56_like; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -396,4 +404,3 @@ ALTER TABLE ONLY public.comments_commentvote
 --
 
 \unrestrict oQtG87qWYGzra4oVeJRhBPSmx02bRRQTeIladKAkRsnorgzaS1OnPdeyobdYxvc
-

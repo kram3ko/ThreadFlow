@@ -1,6 +1,6 @@
 # WebSocket contract
 
-ThreadFlow exposes one public realtime endpoint at `/ws/comments`. Missing authentication cookies create a guest connection. A valid access cookie attaches the account; an invalid or expired cookie closes the connection with code `4401`. The handshake origin is validated against Django's allowed hosts.
+ThreadFlow exposes one public realtime endpoint at `/ws/comments`. A valid access cookie attaches the account. Missing, invalid or expired authentication cookies create a guest connection because comment events are public. The handshake origin is validated against Django's allowed hosts.
 
 ## Client operations
 
@@ -30,9 +30,11 @@ REST creation endpoints remain available as a fallback and call the same validat
 | `response` | — | Command completed; correlated by `id` |
 | `error` | — | Command rejected; contains `code` and `details` |
 | `event` | `comment.created` | A root or reply was committed |
+| `event` | `comment.voted` | A comment score changed |
+| `event` | `search.indexed` | The search projection was updated |
 
 `comment.created` includes a unique `event_id`, `data.kind` (`root` or `reply`) and the public comment representation. Clients deduplicate by comment ID.
 
 ## Delivery behavior
 
-The current channel layer uses Redis and delivers committed comments to connected clients. Delivery is best-effort: after reconnect, the Vue store reloads the authoritative tree through REST. The transactional outbox and Kafka milestone will replace the direct publisher as the durable event source without changing this browser contract.
+The channel layer uses Redis and delivers committed events to connected clients. Comment creation is written to the PostgreSQL outbox and reaches the WebSocket consumer through Kafka. Delivery to an individual browser remains best-effort: after reconnect, the Vue store reloads the authoritative tree through REST. Vote notifications are intentionally best-effort because the score remains authoritative in PostgreSQL and is returned by the vote command.

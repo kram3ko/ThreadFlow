@@ -38,8 +38,10 @@ The first event-driven milestone is implemented:
 - prefix-aware search with debounced type-ahead, result counts and jump-to-comment;
 - sign in with either a username or an email address;
 - inline attach control and UTF-8-safe attachment delivery for non-ASCII file names.
+- server-rendered sanitized comment preview with a compact formatting toolbar;
+- Prometheus metrics for HTTP, comments, votes, search and the event pipeline.
 
-GraphQL and Prometheus remain locked dependencies for later milestones. Redis serves CAPTCHA, comment rate limiting, the Channels layer and the outbox publisher lock; page caching and refresh-token revocation remain later work.
+GraphQL remains a locked dependency for the next milestone. Redis serves CAPTCHA, write rate limiting, the Channels layer and the owner-checked outbox publisher lease; page caching remains later work.
 
 ## Architecture
 
@@ -73,6 +75,7 @@ Command paths are `Browser → Nginx → REST/WebSocket → Django → PostgreSQ
 - Kafka 4.3 provides the durable event log; consumer groups distribute each projection independently.
 - Elasticsearch 9.4 provides the rebuildable search projection and PostgreSQL provides fallback reads.
 - MinIO provides the local private S3-compatible object store; AWS S3 can use the same storage adapter.
+- Prometheus scrapes the web process and each background consumer independently.
 - Nginx exposes one public endpoint and routes `/api/` to Django.
 
 ## Repository layout
@@ -122,10 +125,12 @@ docker compose --env-file .env down
 | `POSTGRES_*` | PostgreSQL database and connection settings |
 | `REDIS_IMAGE` | Redis Server container version |
 | `REDIS_PASSWORD` | Redis authentication password |
+| `RATE_LIMIT_*` | Comment and vote write limits |
 | `KAFKA_*` | Broker, topic, retry and outbox settings |
 | `ELASTICSEARCH_*` | Search endpoint, index and timeouts |
 | `S3_*`, `MINIO_*` | Private object-storage connection and credentials |
 | `DEMO_USER_*` | Optional local demo-user bootstrap |
+| `PROMETHEUS_*`, `METRICS_PORT` | Metrics image, UI port and consumer exporter port |
 
 ## REST API
 
@@ -237,7 +242,7 @@ Each comment keeps a denormalized `score`; `CommentVote` records one vote per id
 
 ![Database schema](docs/architecture/db-schema.svg)
 
-Mermaid source: [`docs/architecture/db-schema.mmd`](docs/architecture/db-schema.mmd). Full DDL: [`docs/architecture/schema.sql`](docs/architecture/schema.sql), importable into MySQL Workbench.
+Mermaid source: [`docs/architecture/db-schema.mmd`](docs/architecture/db-schema.mmd). [`docs/architecture/schema.sql`](docs/architecture/schema.sql) is the authoritative PostgreSQL DDL. [`docs/architecture/schema.mysql.sql`](docs/architecture/schema.mysql.sql) mirrors the domain schema in MySQL 8 syntax for import into MySQL Workbench.
 
 ## Git workflow
 
@@ -250,9 +255,9 @@ Mermaid source: [`docs/architecture/db-schema.mmd`](docs/architecture/db-schema.
 ## Roadmap
 
 1. read-only GraphQL with batching and complexity limits.
-2. Prometheus metrics and service-level dashboards.
-3. reply pagination and popular-page caching.
-4. k6 load profiles, million-comment seed data and deployment documentation.
+2. root/reply pagination and popular-page caching.
+3. Playwright end-to-end coverage and service integration tests.
+4. k6 load profiles, million-comment seed data and release documentation.
 
 The attachment milestone also adds optional account avatars stored in object storage. Guest comments use locally generated initial avatars so visitor email addresses are never sent to an external avatar service. Final visual polish follows the functional milestones and keeps the comment feed compact, avatar-led and focused on live discussion.
 

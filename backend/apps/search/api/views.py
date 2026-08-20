@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.observability.metrics import SEARCH_QUERIES
-from apps.search.api.serializers import SearchQuerySerializer, SearchResultSerializer
+from apps.search.api.serializers import SearchQuerySerializer, SearchResponseSerializer
 from apps.search.services import search_comments
 
 
@@ -15,7 +15,7 @@ class SearchView(APIView):
 
     @extend_schema(
         parameters=[SearchQuerySerializer],
-        responses={200: SearchResultSerializer(many=True)},
+        responses={200: SearchResponseSerializer},
     )
     def get(self, request):
         query = SearchQuerySerializer(data=request.query_params)

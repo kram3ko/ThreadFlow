@@ -32,12 +32,16 @@ function focusComment(id: string) {
   }, HIGHLIGHT_MS);
 }
 
+async function selectComment(id: string) {
+  if (!(await store.ensureLoaded(id))) return;
+  if (location.hash !== `#comment-${id}`) history.replaceState(null, "", `#comment-${id}`);
+  focusComment(id);
+}
+
 async function focusFromHash() {
   const match = location.hash.match(/^#comment-([0-9a-f-]+)$/i);
   if (!match?.[1]) return;
-  const id = match[1];
-  await store.ensureLoaded(id);
-  focusComment(id);
+  await selectComment(match[1]);
 }
 
 onMounted(async () => {
@@ -80,7 +84,7 @@ watch(
       @cancel="replyTo = null"
     />
 
-    <SearchPanel @select="focusComment" />
+    <SearchPanel @select="selectComment" />
 
     <section class="feed">
       <div class="feed-toolbar">

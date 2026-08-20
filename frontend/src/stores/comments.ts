@@ -111,6 +111,7 @@ export const useCommentsStore = defineStore("comments", {
         this.applyScore(data.id, data.score);
         return true;
       } catch {
+        this.error = "Unable to load the selected comment";
         return false;
       }
     },

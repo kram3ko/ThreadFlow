@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { onBeforeUnmount, ref, watch } from "vue";
 
 import { api } from "../api";
+import { LatestRequest } from "../search/latestRequest";
 import type { SearchResult } from "../types";
 
 const MIN_CHARS = 2;
@@ -14,42 +15,60 @@ const source = ref("");
 const loading = ref(false);
 const searched = ref(false);
 const lastQuery = ref("");
+const error = ref("");
+const requests = new LatestRequest();
 let debounce: ReturnType<typeof setTimeout> | undefined;
 
 watch(query, (value) => {
   clearTimeout(debounce);
   if (value.trim().length < MIN_CHARS) {
+    requests.cancel();
     results.value = [];
     source.value = "";
     searched.value = false;
+    loading.value = false;
+    error.value = "";
     return;
   }
   debounce = setTimeout(() => void search(), DEBOUNCE_MS);
 });
 
 function highlightParts(text: string): { text: string; match: boolean }[] {
-  if (!query.value.trim()) return [{ text, match: false }];
-  const escaped = query.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!lastQuery.value) return [{ text, match: false }];
+  const escaped = lastQuery.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return text.split(new RegExp(`(${escaped})`, "gi")).filter(Boolean).map((part) => ({
     text: part,
-    match: part.toLowerCase() === query.value.toLowerCase(),
+    match: part.toLowerCase() === lastQuery.value.toLowerCase(),
   }));
 }
 
 async function search() {
+  const searchQuery = query.value.trim();
+  if (searchQuery.length < MIN_CHARS) return;
+  const signal = requests.begin();
   loading.value = true;
-  lastQuery.value = query.value;
+  error.value = "";
   try {
     const { data } = await api.get<{ source: string; results: SearchResult[] }>("/search", {
-      params: { q: query.value },
+      params: { q: searchQuery },
+      signal,
     });
+    if (!requests.isCurrent(signal)) return;
+    lastQuery.value = searchQuery;
     source.value = data.source;
     results.value = data.results;
     searched.value = true;
+  } catch {
+    if (requests.isCurrent(signal)) error.value = "Search is temporarily unavailable.";
   } finally {
-    loading.value = false;
+    if (requests.isCurrent(signal)) loading.value = false;
   }
 }
+
+onBeforeUnmount(() => {
+  clearTimeout(debounce);
+  requests.cancel();
+});
 </script>
 
 <template>
@@ -60,6 +79,7 @@ async function search() {
     </form>
     <small v-if="loading">Searching…</small>
     <small v-else-if="source">{{ results.length }} found · source: {{ source }}</small>
+    <p v-if="error" class="error">{{ error }}</p>
     <p v-if="searched && !loading && !results.length" class="empty">
       No matches for “{{ lastQuery }}”.
     </p>

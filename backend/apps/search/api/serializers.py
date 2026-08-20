@@ -18,3 +18,12 @@ class SearchResultSerializer(serializers.Serializer):
     root_id = serializers.UUIDField()
     created_at = serializers.DateTimeField()
     highlights = serializers.ListField(child=serializers.CharField())
+
+
+class SearchResponseSerializer(serializers.Serializer):
+    results = SearchResultSerializer(many=True)
+
+    def get_fields(self) -> dict[str, serializers.Field]:
+        fields = super().get_fields()
+        fields["source"] = serializers.ChoiceField(choices=["elasticsearch", "postgresql"])
+        return fields

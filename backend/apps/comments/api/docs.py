@@ -12,6 +12,8 @@ from apps.comments.api.serializers import (
     CommentSerializer,
     PreviewResultSerializer,
     PreviewSerializer,
+    VoteResultSerializer,
+    VoteSerializer,
 )
 
 COMMENT_EXAMPLE = OpenApiExample(
@@ -107,6 +109,18 @@ document_comment_viewset = extend_schema_view(
         responses={
             200: PreviewResultSerializer,
             400: OpenApiResponse(ERROR_RESPONSE, description="Validation failed"),
+        },
+        tags=["comments"],
+    ),
+    vote=extend_schema(
+        summary="Vote on a comment",
+        description="Use 1 for up, -1 for down and 0 to clear the current identity's vote.",
+        request=VoteSerializer,
+        responses={
+            200: VoteResultSerializer,
+            400: OpenApiResponse(ERROR_RESPONSE, description="Validation failed"),
+            404: OpenApiResponse(ERROR_RESPONSE, description="Comment not found"),
+            429: OpenApiResponse(ERROR_RESPONSE, description="Vote rate limit exceeded"),
         },
         tags=["comments"],
     ),

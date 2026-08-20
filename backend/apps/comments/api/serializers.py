@@ -18,6 +18,11 @@ class VoteSerializer(serializers.Serializer):
     value = serializers.ChoiceField(choices=[-1, 0, 1])
 
 
+class VoteResultSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    score = serializers.IntegerField()
+
+
 class PreviewSerializer(serializers.Serializer):
     text = serializers.CharField(max_length=10_000, trim_whitespace=False)
 
