@@ -2,12 +2,14 @@
 import { nextTick, onMounted, reactive, ref, useTemplateRef } from "vue";
 
 import { api } from "../api";
+import { useI18n } from "../i18n";
 import type { AuthUser, CaptchaChallenge, CommentDraft, CommentItem } from "../types";
 
 const props = defineProps<{
   parent: CommentItem | null;
   user: AuthUser | null;
   submit: (draft: CommentDraft, parentId?: string) => Promise<boolean>;
+  closable?: boolean;
 }>();
 const emit = defineEmits<{ submitted: []; cancel: [] }>();
 const submitting = ref(false);
@@ -20,6 +22,7 @@ const uploadError = ref("");
 const previewing = ref(false);
 const previewHtml = ref("");
 const previewError = ref("");
+const { t } = useI18n();
 const draft = reactive<CommentDraft>({
   username: "",
   email: "",
@@ -64,7 +67,7 @@ function wrap(tag: string, attributes = "") {
 }
 
 function insertLink() {
-  const url = window.prompt("Link URL", "https://");
+  const url = window.prompt(t("linkUrl"), "https://");
   if (!url) return;
   wrap("a", `href="${url.replaceAll('"', "%22")}"`);
 }
@@ -80,7 +83,7 @@ async function togglePreview() {
     previewHtml.value = data.html;
   } catch {
     previewHtml.value = "";
-    previewError.value = "Preview failed — check that your tags are closed.";
+    previewError.value = t("previewFailed");
   }
   previewing.value = true;
 }
@@ -93,7 +96,7 @@ async function uploadAttachment(file: File): Promise<{ id: string; token: string
     const { data } = await api.post<{ id: string; claim_token: string }>("/attachments", form);
     return { id: data.id, token: data.claim_token };
   } catch {
-    uploadError.value = "Unable to upload the attachment.";
+    uploadError.value = t("uploadFailed");
     return null;
   }
 }
@@ -115,7 +118,7 @@ async function submit() {
       previewHtml.value = "";
       clearAttachment();
       emit("submitted");
-      if (!props.parent) await loadCaptcha();
+      if (!props.parent && !props.closable) await loadCaptcha();
     } else {
       await loadCaptcha();
     }
@@ -134,36 +137,43 @@ onMounted(() => {
 <template>
   <form class="comment-form" @submit.prevent="submit">
     <div class="form-heading">
-      <h2>{{ parent ? `Reply to ${parent.author_name}` : "Add comment" }}</h2>
-      <button v-if="parent" class="link-button" type="button" @click="emit('cancel')">Cancel</button>
+      <div>
+        <span v-if="parent" class="form-context">{{ t("reply") }}</span>
+        <h2>{{ parent ? t("replyTo", { name: parent.author_name }) : t("addComment") }}</h2>
+      </div>
+      <button v-if="parent || closable" class="link-button" type="button" @click="emit('cancel')">{{ t("cancel") }}</button>
     </div>
     <p v-if="uploadError" class="error">{{ uploadError }}</p>
     <div class="form-grid">
-      <p v-if="user" class="posting-as">Posting as <strong>{{ user.username }}</strong></p>
+      <p v-if="user" class="posting-as">{{ t("postingAs") }} <strong>{{ user.username }}</strong></p>
       <template v-else>
-        <label>Username <input v-model="draft.username" required pattern="[A-Za-z0-9_]+" /></label>
-        <label>Email <input v-model="draft.email" required type="email" /></label>
+        <label>{{ t("username") }} <input v-model="draft.username" required pattern="[A-Za-z0-9_]+" /></label>
+        <label>{{ t("email") }} <input v-model="draft.email" required type="email" /></label>
       </template>
-      <label class="wide">Homepage <input v-model="draft.homepage" type="url" /></label>
+      <label class="wide">{{ t("homepage") }} <input v-model="draft.homepage" type="url" /></label>
       <div class="wide comment-editor">
-        <span class="editor-label">Comment</span>
-        <div class="editor-toolbar" role="group" aria-label="Formatting">
-          <button type="button" title="Bold" @click="wrap('strong')"><strong>B</strong></button>
-          <button type="button" title="Italic" @click="wrap('i')"><em>i</em></button>
-          <button type="button" title="Code" @click="wrap('code')">&lt;/&gt;</button>
-          <button type="button" title="Link" @click="insertLink">link</button>
-          <button type="button" class="preview-btn" @click="togglePreview">
-            {{ previewing ? "Hide preview" : "Preview" }}
-          </button>
+        <div class="editor-tabs">
+          <button type="button" :class="{ active: !previewing }" @click="previewing = false">{{ t("write") }}</button>
+          <button type="button" :class="{ active: previewing }" @click="togglePreview">{{ t("preview") }}</button>
         </div>
-        <textarea ref="commentInput" v-model="draft.text" required rows="5" />
+        <div v-show="!previewing" class="editor-surface">
+          <div class="editor-toolbar" role="group" :aria-label="t('formatting')">
+            <button type="button" :title="t('bold')" @click="wrap('strong')"><strong>B</strong></button>
+            <button type="button" :title="t('italic')" @click="wrap('i')"><em>i</em></button>
+            <button type="button" :title="t('code')" @click="wrap('code')">&lt;/&gt;</button>
+            <button type="button" :title="t('link')" @click="insertLink">↗</button>
+          </div>
+          <textarea ref="commentInput" v-model="draft.text" required rows="5" :placeholder="t('commentPlaceholder')" />
+          <small class="character-count">{{ t("characters", { count: draft.text.length }) }}</small>
+        </div>
         <div v-if="previewing" class="comment-preview">
           <p v-if="previewError" class="error">{{ previewError }}</p>
-          <div v-else class="comment-text" v-html="previewHtml" />
+          <div v-else-if="previewHtml" class="comment-text" v-html="previewHtml" />
+          <p v-else class="preview-placeholder">{{ t("commentPlaceholder") }}</p>
         </div>
       </div>
-      <label class="wide">
-        Attachment (JPG, PNG, GIF or TXT)
+      <label class="wide attachment-field">
+        <span>{{ t("attachment") }} <small>· {{ t("attachmentHint") }}</small></span>
         <span class="attachment-control">
           <input
             ref="fileInput"
@@ -171,34 +181,37 @@ onMounted(() => {
             accept="image/jpeg,image/png,image/gif,text/plain,.txt"
             @change="attachment = ($event.target as HTMLInputElement).files?.[0] ?? null"
           />
+          <span class="file-trigger">＋ {{ t("chooseFile") }}</span>
+          <span v-if="attachment" class="file-chip">{{ attachment.name }}</span>
           <button
             v-if="attachment"
             type="button"
             class="attachment-remove"
-            aria-label="Remove attachment"
+            :aria-label="t('removeAttachment')"
             @click="clearAttachment"
           >×</button>
         </span>
       </label>
       <div class="captcha-field wide">
-        <img v-if="captcha" :src="captcha.image_data" alt="CAPTCHA challenge" width="190" height="64" />
-        <span v-else>{{ captchaLoading ? "Loading CAPTCHA…" : "CAPTCHA unavailable" }}</span>
+        <img v-if="captcha" :src="captcha.image_data" :alt="t('captchaAlt')" width="190" height="64" />
+        <span v-else>{{ captchaLoading ? t("captchaLoading") : t("captchaUnavailable") }}</span>
         <label>
-          CAPTCHA
+          {{ t("captcha") }}
           <input
             v-model="draft.captcha_answer"
             required
+            :disabled="captchaLoading || !captcha"
             autocomplete="off"
             pattern="[A-Za-z0-9]+"
           />
         </label>
         <button class="link-button" type="button" :disabled="captchaLoading" @click="loadCaptcha">
-          New image
+          {{ t("newImage") }}
         </button>
       </div>
     </div>
-    <button class="primary" type="submit" :disabled="submitting">
-      {{ submitting ? "Sending…" : "Send comment" }}
+    <button class="primary" type="submit" :disabled="submitting || captchaLoading || !captcha">
+      {{ submitting ? t("sending") : t("sendComment") }}
     </button>
   </form>
 </template>

@@ -6,12 +6,14 @@ import type { AttachmentItem, CommentItem } from "../types";
 import { avatarInitial, avatarStyle } from "../avatar";
 import { useAuthStore } from "../stores/auth";
 import { useCommentsStore } from "../stores/comments";
+import { useI18n } from "../i18n";
 
 defineOptions({ name: "CommentNode" });
 const props = defineProps<{
   comment: CommentItem;
   highlightedId: string | null;
   replyToId: string | null;
+  level?: number;
 }>();
 const emit = defineEmits<{ reply: [comment: CommentItem]; replyClosed: [] }>();
 const store = useCommentsStore();
@@ -21,6 +23,7 @@ const selectedImage = ref<{ url: string; name: string } | null>(null);
 const selectedText = ref<{ content: string; name: string } | null>(null);
 const previewLoading = ref(false);
 const previewError = ref("");
+const { formatDate, t } = useI18n();
 
 function voteKey(id: string): string {
   return `vote:${id}`;
@@ -64,7 +67,7 @@ async function openAttachment(attachment: AttachmentItem) {
       name: attachment.original_name,
     };
   } catch {
-    previewError.value = "Unable to load text preview";
+    previewError.value = t("textPreviewFailed");
   } finally {
     previewLoading.value = false;
   }
@@ -80,7 +83,11 @@ async function cast(value: 1 | -1) {
 </script>
 
 <template>
-  <article :id="`comment-${comment.id}`" class="comment" :class="{ flash: comment.id === highlightedId }">
+  <article
+    :id="`comment-${comment.id}`"
+    class="comment"
+    :class="{ flash: comment.id === highlightedId, 'root-comment': (level ?? 0) === 0 }"
+  >
     <header>
       <img v-if="comment.avatar_url" class="avatar avatar-image" :src="comment.avatar_url" alt="" />
       <span v-else class="avatar" :style="avatarStyle(comment.author_name)" aria-hidden="true">
@@ -88,31 +95,31 @@ async function cast(value: 1 | -1) {
       </span>
       <span class="comment-meta">
         <strong>{{ comment.author_name }}</strong>
-        <time :datetime="comment.created_at">{{ new Date(comment.created_at).toLocaleString() }}</time>
+        <time :datetime="comment.created_at">{{ formatDate(comment.created_at) }}</time>
       </span>
       <div class="comment-actions">
         <button
           type="button"
           class="action-icon"
-          :title="copied ? 'Link copied' : 'Copy link'"
-          aria-label="Copy link to comment"
+          :title="copied ? t('linkCopied') : t('copyLink')"
+          :aria-label="copied ? t('linkCopied') : t('copyLink')"
           @click="copyLink"
         >{{ copied ? "✓" : "#" }}</button>
         <button
           type="button"
-          class="action-icon"
-          title="Reply"
-          aria-label="Reply"
+          class="action-icon reply-action"
+          :title="t('reply')"
+          :aria-label="t('reply')"
           :aria-expanded="replyToId === comment.id"
           :aria-controls="`reply-form-${comment.id}`"
           @click="emit('reply', comment)"
-        >↩</button>
+        ><span aria-hidden="true">↩</span><span class="reply-label">{{ t("reply") }}</span></button>
         <span class="votes">
           <button
             type="button"
             class="vote"
             :class="{ active: myVote === 1 }"
-            aria-label="Upvote"
+            :aria-label="t('upvote')"
             @click="cast(1)"
           >▲</button>
           <span class="score" :class="{ positive: comment.score > 0, negative: comment.score < 0 }">
@@ -122,7 +129,7 @@ async function cast(value: 1 | -1) {
             type="button"
             class="vote"
             :class="{ active: myVote === -1 }"
-            aria-label="Downvote"
+            :aria-label="t('downvote')"
             @click="cast(-1)"
           >▼</button>
         </span>
@@ -142,9 +149,9 @@ async function cast(value: 1 | -1) {
       </button>
     </div>
     <dialog ref="lightbox" class="lightbox" @click.self="lightbox?.close()">
-      <button class="dialog-close" type="button" aria-label="Close" @click="lightbox?.close()">×</button>
+      <button class="dialog-close" type="button" :aria-label="t('close')" @click="lightbox?.close()">×</button>
       <img v-if="selectedImage" :src="selectedImage.url" :alt="selectedImage.name" />
-      <p v-else-if="previewLoading" class="text-preview-state">Loading preview…</p>
+      <p v-else-if="previewLoading" class="text-preview-state">{{ t("loadingPreview") }}</p>
       <p v-else-if="previewError" class="error">{{ previewError }}</p>
       <section v-else-if="selectedText" class="text-preview">
         <h3>{{ selectedText.name }}</h3>
@@ -170,6 +177,7 @@ async function cast(value: 1 | -1) {
         v-for="reply in comment.replies"
         :key="reply.id"
         :comment="reply"
+        :level="(level ?? 0) + 1"
         :highlighted-id="highlightedId"
         :reply-to-id="replyToId"
         @reply="emit('reply', $event)"
@@ -181,6 +189,6 @@ async function cast(value: 1 | -1) {
       class="more-replies"
       type="button"
       @click="store.loadBranch(comment.id)"
-    >Load more replies</button>
+    >{{ t("loadMoreReplies") }}</button>
   </article>
 </template>

@@ -92,9 +92,11 @@ export class CommentsSocket {
     this.onStatus("connecting");
     const scheme = window.location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${scheme}://${window.location.host}/ws/comments`);
-    socket.onopen = () => this.#onOpen();
-    socket.onmessage = (event: MessageEvent<string>) => this.#onMessage(event.data);
-    socket.onclose = () => this.#onClose();
+    socket.onopen = () => this.#onOpen(socket);
+    socket.onmessage = (event: MessageEvent<string>) => {
+      if (this.#socket === socket) this.#onMessage(event.data);
+    };
+    socket.onclose = () => this.#onClose(socket);
     socket.onerror = () => socket.close();
     this.#socket = socket;
   }
@@ -116,7 +118,8 @@ export class CommentsSocket {
   }
 
   request(operation: CommentOperation.Create | CommentOperation.Reply, data: object) {
-    if (!this.isOpen || !this.#socket) {
+    const socket = this.#socket;
+    if (!this.isOpen || !socket) {
       return Promise.reject(new SocketCommandError("not_connected", "Connection is not open."));
     }
     const id = requestId();
@@ -127,7 +130,7 @@ export class CommentsSocket {
       }, REQUEST_TIMEOUT_MS);
       this.#pending.set(id, { resolve, reject, timeout });
       try {
-        this.#socket?.send(JSON.stringify({ id, op: operation, data }));
+        socket.send(JSON.stringify({ id, op: operation, data }));
       } catch {
         clearTimeout(timeout);
         this.#pending.delete(id);
@@ -136,10 +139,11 @@ export class CommentsSocket {
     });
   }
 
-  #onOpen(): void {
+  #onOpen(socket: WebSocket): void {
+    if (this.#socket !== socket) return;
     this.#reconnectAttempt = 0;
     this.onStatus("open");
-    this.#socket?.send(
+    socket.send(
       JSON.stringify({ op: CommentOperation.Subscribe, topics: [CommentTopic.Comments] }),
     );
   }
@@ -176,7 +180,8 @@ export class CommentsSocket {
     }
   }
 
-  #onClose(): void {
+  #onClose(socket: WebSocket): void {
+    if (this.#socket !== socket) return;
     this.#socket = null;
     this.onStatus("closed");
     this.#rejectPending("disconnected", "Connection was interrupted.");

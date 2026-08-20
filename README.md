@@ -12,7 +12,7 @@ The release candidate implements:
 - cursor pagination over 25 root comments;
 - root sorting by date, author name or email in both directions;
 - bounded tree responses without N+1 queries;
-- Vue comment form, recursive reply UI and focused inline reply composer;
+- responsive Vue discussion UI with a collapsible root composer and focused inline replies;
 - PostgreSQL migrations, unified API errors and health check;
 - Docker images for Django, Vue and Nginx;
 - provisioned PostgreSQL 17 and Redis Server 8.10;
@@ -28,6 +28,7 @@ The release candidate implements:
 - automatic reconnect, REST resynchronization and REST write fallback;
 - compact modal authentication and deterministic guest avatars;
 - persisted `Auto`, light and dark color themes;
+- persisted English, Ukrainian and Russian interface languages with localized dates;
 - private MinIO/S3-compatible image and TXT attachments with content-based MIME checks;
 - proportional 320×240 image resizing, safe TXT delivery and optional account avatars;
 - transactional PostgreSQL outbox with acknowledged Kafka publication;
@@ -141,7 +142,7 @@ docker compose --env-file .env exec elasticsearch \
 
 ### What to try
 
-Open the SPA and post as a guest or use `demo` / `demo-password`. CAPTCHA is required for every comment. Registration and sign-in live in the top-right dialog. `Reply` opens a focused form directly below the selected comment; submitted roots, replies and votes appear live through WebSocket events. The editor supports preview and the allowed safe HTML tags, while JPG/PNG/GIF images and UTF-8 TXT files can be attached and previewed safely.
+Open the SPA and post as a guest or use `demo` / `demo-password`. CAPTCHA is required for every comment. Language and light/dark/automatic theme controls are in the header and persist in the browser. Registration and sign-in live in the top-right dialog. The compact invitation opens the root editor; `Reply` opens a focused form directly below the selected comment. Submitted roots, replies and votes appear live through WebSocket events. The editor supports preview and the allowed safe HTML tags, while JPG/PNG/GIF images and UTF-8 TXT files can be attached and previewed safely.
 
 Search demonstrates the Elasticsearch projection and transparently falls back to PostgreSQL when Elasticsearch is unavailable. A compact GraphQL read example is:
 

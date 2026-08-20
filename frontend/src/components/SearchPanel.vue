@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { api } from "../api";
 import { LatestRequest } from "../search/latestRequest";
 import type { SearchResult } from "../types";
+import { useI18n } from "../i18n";
 
 const MIN_CHARS = 2;
 const DEBOUNCE_MS = 300;
@@ -27,6 +28,7 @@ interface SearchResponse {
 }
 
 const emit = defineEmits<{ select: [id: string] }>();
+const { formatDate, t } = useI18n();
 const query = ref("");
 const results = ref<SearchResult[]>([]);
 const source = ref("");
@@ -114,7 +116,7 @@ async function search(append = false) {
     ? { ...lastParams.value!, offset: nextOffset.value! }
     : currentParams();
   if (!hasCriteria(params)) {
-    error.value = "Enter at least two characters or choose a filter.";
+    error.value = t("searchCriteriaError");
     return;
   }
   const signal = requests.begin();
@@ -138,7 +140,7 @@ async function search(append = false) {
     nextOffset.value = data.next_offset;
     searched.value = true;
   } catch {
-    if (requests.isCurrent(signal)) error.value = "Search is temporarily unavailable.";
+    if (requests.isCurrent(signal)) error.value = t("searchUnavailable");
   } finally {
     if (requests.isCurrent(signal)) loading.value = false;
   }
@@ -166,59 +168,59 @@ onBeforeUnmount(() => {
       <div class="search-form">
         <input
           v-model="query"
-          aria-label="Search query"
+          :aria-label="t('searchQuery')"
           type="search"
-          placeholder="Search comments and authors…"
+          :placeholder="t('searchPlaceholder')"
         />
-        <button class="primary compact" type="submit" :disabled="loading">Search</button>
+        <button class="primary compact" type="submit" :disabled="loading">{{ t("search") }}</button>
       </div>
       <details class="search-filters">
         <summary>
-          Filters
+          {{ t("filters") }}
           <span v-if="activeFilterCount" class="filter-count">{{ activeFilterCount }}</span>
         </summary>
         <div class="filter-grid">
           <label>
-            Author
-            <input v-model="filters.author" placeholder="Name or email" />
+            {{ t("author") }}
+            <input v-model="filters.author" :placeholder="t('nameOrEmail')" />
           </label>
           <label>
-            From date
+            {{ t("fromDate") }}
             <input v-model="filters.dateFrom" type="date" :max="filters.dateTo || undefined" />
           </label>
           <label>
-            To date
+            {{ t("toDate") }}
             <input v-model="filters.dateTo" type="date" :min="filters.dateFrom || undefined" />
           </label>
           <label>
-            Sort by
+            {{ t("sortBy") }}
             <select v-model="filters.sort">
-              <option value="relevance">Relevance</option>
-              <option value="date">Date</option>
+              <option value="relevance">{{ t("relevance") }}</option>
+              <option value="date">{{ t("date") }}</option>
             </select>
           </label>
           <label>
-            Direction
+            {{ t("direction") }}
             <select v-model="filters.direction">
-              <option value="desc">Descending</option>
-              <option value="asc">Ascending</option>
+              <option value="desc">{{ t("descending") }}</option>
+              <option value="asc">{{ t("ascending") }}</option>
             </select>
           </label>
           <div class="filter-actions">
-            <button class="primary compact" type="submit" :disabled="loading">Apply filters</button>
-            <button class="link-button" type="button" @click="resetFilters">Reset</button>
+            <button class="primary compact" type="submit" :disabled="loading">{{ t("applyFilters") }}</button>
+            <button class="link-button" type="button" @click="resetFilters">{{ t("reset") }}</button>
           </div>
         </div>
       </details>
     </form>
-    <small v-if="loading">Searching…</small>
+    <small v-if="loading">{{ t("searching") }}</small>
     <small v-else-if="source">
-      {{ results.length }} loaded<span v-if="nextOffset !== null"> · more available</span>
-      · source: {{ source }}
+      {{ t("resultsLoaded", { count: results.length }) }}<span v-if="nextOffset !== null"> · {{ t("moreAvailable") }}</span>
+      · {{ t("source") }}: {{ source }}
     </small>
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="searched && !loading && !results.length" class="empty">
-      {{ lastQuery ? `No matches for “${lastQuery}”.` : "No matches for the selected filters." }}
+      {{ lastQuery ? t("noQueryMatches", { query: lastQuery }) : t("noFilterMatches") }}
     </p>
     <ul v-if="results.length" class="search-results">
       <li v-for="result in results" :key="result.id">
@@ -227,7 +229,7 @@ onBeforeUnmount(() => {
           <template v-for="(part, index) in highlightParts(result.highlights.join(' … '))" :key="index">
             <mark v-if="part.match">{{ part.text }}</mark><template v-else>{{ part.text }}</template>
           </template>
-          <time :datetime="result.created_at">{{ new Date(result.created_at).toLocaleDateString() }}</time>
+          <time :datetime="result.created_at">{{ formatDate(result.created_at, true) }}</time>
         </button>
       </li>
     </ul>
@@ -237,6 +239,6 @@ onBeforeUnmount(() => {
       type="button"
       :disabled="loading"
       @click="search(true)"
-    >{{ loading ? "Loading…" : "Load more results" }}</button>
+    >{{ loading ? t("loading") : t("loadMoreResults") }}</button>
   </section>
 </template>
