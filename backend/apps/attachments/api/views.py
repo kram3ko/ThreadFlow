@@ -1,4 +1,4 @@
-from django.http import FileResponse, Http404
+from django.http import Http404, HttpResponse
 from django.utils.http import content_disposition_header
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -40,12 +40,16 @@ class AttachmentContentView(APIView):
         try:
             attachment = Attachment.objects.get(id=pk)
             file = attachment.file.open("rb")
+            try:
+                content = file.read()
+            finally:
+                file.close()
         except (Attachment.DoesNotExist, OSError) as exc:
             raise Http404 from exc
         content_type = attachment.content_type
         if content_type == "text/plain":
             content_type = "text/plain; charset=utf-8"
-        response = FileResponse(file, content_type=content_type)
+        response = HttpResponse(content, content_type=content_type)
         disposition = content_disposition_header(
             as_attachment=False, filename=attachment.original_name
         )

@@ -55,3 +55,24 @@ def test_executable_upload_is_rejected(tmp_path, settings):
         format="multipart",
     )
     assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_text_content_is_buffered_and_served_with_safe_headers(tmp_path, settings):
+    settings.MEDIA_ROOT = tmp_path
+    client = APIClient()
+    upload = client.post(
+        "/api/attachments",
+        {"file": SimpleUploadedFile("notes.txt", b"Safe preview text")},
+        format="multipart",
+    )
+
+    response = client.get(f"/api/attachments/{upload.json()['id']}/content")
+
+    assert response.status_code == 200
+    assert not response.streaming
+    assert response.content == b"Safe preview text"
+    assert response["Content-Type"] == "text/plain; charset=utf-8"
+    assert response["Content-Disposition"] == 'inline; filename="notes.txt"'
+    assert response["Content-Security-Policy"] == "default-src 'none'"
+    assert response["X-Content-Type-Options"] == "nosniff"

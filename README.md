@@ -234,7 +234,7 @@ npm run build
 npm test
 ```
 
-Backend coverage is enforced at 85%. The current complete suite contains 71 tests and reports 86.33% branch-aware coverage. Browser and load-test commands are documented in [`load-tests/README.md`](load-tests/README.md); measured results are recorded in [`docs/testing/load-test-results.md`](docs/testing/load-test-results.md).
+Backend coverage is enforced at 85%. The current complete suite contains 72 tests and reports 87.63% branch-aware coverage. Browser and load-test commands are documented in [`load-tests/README.md`](load-tests/README.md); measured results are recorded in [`docs/testing/load-test-results.md`](docs/testing/load-test-results.md).
 
 Run the real browser journey against the Compose stack with one-use CAPTCHA credentials:
 
