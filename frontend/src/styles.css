@@ -168,8 +168,12 @@ textarea { resize: vertical; }
 .auth-tabs button.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 800; }
 .auth-form { display: grid; gap: 12px; }
 .auth-form label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 750; }
-.lightbox { max-width: min(92vw, 1100px); border: 0; border-radius: 18px; background: var(--surface); padding: 44px 16px 16px; }
+.lightbox { max-width: min(92vw, 1100px); border: 0; border-radius: 18px; background: var(--surface); padding: 44px 16px 16px; box-shadow: var(--shadow-lg); }
+.lightbox[open] { animation: lightbox-enter .2s cubic-bezier(.2, .8, .2, 1); }
 .lightbox::backdrop { background: rgb(5 10 8 / 82%); backdrop-filter: blur(4px); }
+.lightbox[open]::backdrop { animation: lightbox-backdrop-enter .2s ease-out; }
+.lightbox.closing { animation: lightbox-leave .16s ease-in forwards; }
+.lightbox.closing::backdrop { animation: lightbox-backdrop-leave .16s ease-in forwards; }
 .lightbox > img { display: block; max-width: 85vw; max-height: 82vh; }
 .lightbox .dialog-close { position: absolute; top: 8px; right: 14px; }
 .text-preview { width: min(80vw, 760px); color: var(--text); }
@@ -186,6 +190,10 @@ textarea { resize: vertical; }
 @keyframes panel-enter { from { transform: translateY(-6px); opacity: 0; } }
 @keyframes shimmer { to { background-position: -220% 0; } }
 @keyframes comment-flash { 0%, 40% { background: rgb(233 196 74 / 25%); } 100% { background: transparent; } }
+@keyframes lightbox-enter { from { transform: translateY(8px) scale(.96); opacity: 0; } }
+@keyframes lightbox-leave { to { transform: translateY(5px) scale(.98); opacity: 0; } }
+@keyframes lightbox-backdrop-enter { from { background: transparent; backdrop-filter: blur(0); } }
+@keyframes lightbox-backdrop-leave { to { background: transparent; backdrop-filter: blur(0); } }
 
 @media (max-width: 760px) {
   .page-shell { width: min(100% - 24px, 1020px); padding-top: 16px; }
