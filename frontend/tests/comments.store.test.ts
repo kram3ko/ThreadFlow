@@ -144,7 +144,7 @@ describe("comments store", () => {
     });
     const store = useCommentsStore();
     store.comments = [root];
-    store.nextPage = "/comments?cursor=next";
+    store.nextPage = "http://threadflow.local/api/comments?cursor=next";
 
     await store.loadMore();
 

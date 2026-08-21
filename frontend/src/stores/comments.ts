@@ -24,6 +24,12 @@ function socketErrorMessage(error: SocketCommandError): string {
   return "Unable to create comment";
 }
 
+function paginationPath(page: string): string {
+  const url = new URL(page, "http://threadflow.local");
+  const path = url.pathname.startsWith("/api/") ? url.pathname.slice(4) : url.pathname;
+  return `${path}${url.search}`;
+}
+
 export const useCommentsStore = defineStore("comments", {
   state: () => ({
     comments: [] as CommentItem[],
@@ -61,7 +67,7 @@ export const useCommentsStore = defineStore("comments", {
       this.loadingMore = true;
       this.error = "";
       try {
-        const { data } = await api.get<CommentPage>(this.nextPage);
+        const { data } = await api.get<CommentPage>(paginationPath(this.nextPage));
         const known = new Set(this.comments.map((comment) => comment.id));
         this.comments.push(...data.results.filter((comment) => !known.has(comment.id)));
         this.nextPage = data.next;
