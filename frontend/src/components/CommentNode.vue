@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, useTemplateRef } from "vue";
+import { onBeforeUnmount, ref, useTemplateRef } from "vue";
 
 import CommentForm from "./CommentForm.vue";
 import type { AttachmentItem, CommentItem } from "../types";
@@ -24,6 +24,8 @@ const selectedText = ref<{ content: string; name: string } | null>(null);
 const previewLoading = ref(false);
 const previewError = ref("");
 const { formatDate, t } = useI18n();
+const LIGHTBOX_CLOSE_MS = 160;
+let lightboxCloseTimer: number | undefined;
 
 function voteKey(id: string): string {
   return `vote:${id}`;
@@ -48,6 +50,21 @@ function openImage(url: string, name: string) {
   previewError.value = "";
   lightbox.value?.showModal();
 }
+
+function closeLightbox() {
+  const dialog = lightbox.value;
+  if (!dialog?.open || dialog.classList.contains("closing")) return;
+  dialog.classList.add("closing");
+  lightboxCloseTimer = window.setTimeout(() => {
+    dialog.close();
+    dialog.classList.remove("closing");
+    lightboxCloseTimer = undefined;
+  }, LIGHTBOX_CLOSE_MS);
+}
+
+onBeforeUnmount(() => {
+  if (lightboxCloseTimer !== undefined) window.clearTimeout(lightboxCloseTimer);
+});
 
 async function openAttachment(attachment: AttachmentItem) {
   if (attachment.kind === "image") {
@@ -151,8 +168,13 @@ async function cast(value: 1 | -1) {
         <span v-else>📄 {{ item.original_name }} · {{ Math.ceil(item.size / 1024) }} KB</span>
       </button>
     </div>
-    <dialog ref="lightbox" class="lightbox" @click.self="lightbox?.close()">
-      <button class="dialog-close" type="button" :aria-label="t('close')" @click="lightbox?.close()">×</button>
+    <dialog
+      ref="lightbox"
+      class="lightbox"
+      @cancel.prevent="closeLightbox"
+      @click.self="closeLightbox"
+    >
+      <button class="dialog-close" type="button" :aria-label="t('close')" @click="closeLightbox">×</button>
       <img v-if="selectedImage" :src="selectedImage.url" :alt="selectedImage.name" />
       <p v-else-if="previewLoading" class="text-preview-state">{{ t("loadingPreview") }}</p>
       <p v-else-if="previewError" class="error">{{ previewError }}</p>
