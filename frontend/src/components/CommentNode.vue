@@ -94,7 +94,10 @@ async function cast(value: 1 | -1) {
         {{ avatarInitial(comment.author_name) }}
       </span>
       <span class="comment-meta">
-        <strong>{{ comment.author_name }}</strong>
+        <span class="comment-identity">
+          <strong>{{ comment.author_name }}</strong>
+          <small>{{ comment.author_email }}</small>
+        </span>
         <time :datetime="comment.created_at">{{ formatDate(comment.created_at) }}</time>
       </span>
       <div class="comment-actions">

@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from apps.comments.models import Comment
-from apps.search.documents import rebuild_index
+from apps.search.documents import INDEX_MAPPING, rebuild_index
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from rest_framework.test import APIClient
@@ -81,8 +81,8 @@ def test_search_paginates_filtered_postgresql_fallback():
     elasticsearch = Mock()
     elasticsearch.search.side_effect = OSError("unavailable")
     with patch("apps.search.services.client", return_value=elasticsearch):
-        first = APIClient().get("/api/search?author=PagedAuthor&limit=2&offset=0")
-        second = APIClient().get("/api/search?author=PagedAuthor&limit=2&offset=2")
+        first = APIClient().get("/api/search?author=agedauth&limit=2&offset=0")
+        second = APIClient().get("/api/search?author=EXAMPLE.COM&limit=2&offset=2")
 
     assert first.status_code == 200
     assert len(first.json()["results"]) == 2
@@ -90,6 +90,24 @@ def test_search_paginates_filtered_postgresql_fallback():
     assert second.status_code == 200
     assert len(second.json()["results"]) == 1
     assert second.json()["next_offset"] is None
+
+
+def test_elasticsearch_author_filter_uses_case_insensitive_contains_fields():
+    elasticsearch = Mock()
+    elasticsearch.search.return_value = {"hits": {"hits": []}}
+
+    with patch("apps.search.services.client", return_value=elasticsearch):
+        response = APIClient().get("/api/search?author=Arch%3FUser")
+
+    assert response.status_code == 200
+    author_query = elasticsearch.search.call_args.kwargs["query"]["bool"]["must"][0]
+    username = author_query["bool"]["should"][0]["wildcard"]["username.contains"]
+    email = author_query["bool"]["should"][1]["wildcard"]["email.contains"]
+    assert username == {"value": "*Arch\\?User*", "case_insensitive": True}
+    assert email == {"value": "*Arch\\?User*", "case_insensitive": True}
+    assert INDEX_MAPPING["mappings"]["properties"]["username"]["fields"]["contains"] == {
+        "type": "wildcard"
+    }
 
 
 def test_search_rejects_inverted_date_range():

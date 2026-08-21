@@ -103,6 +103,8 @@ textarea { resize: vertical; }
 .search-hit { display: block; width: 100%; border: 1px solid transparent; border-radius: 11px; background: var(--surface-soft); padding: 10px 12px; color: var(--muted); cursor: pointer; font: inherit; text-align: left; transition: border-color .14s, transform .14s; }
 .search-hit:hover { transform: translateX(2px); border-color: var(--border); }
 .search-hit strong { color: var(--text); }
+.search-author { display: flex; align-items: baseline; gap: 7px; margin-bottom: 3px; }
+.search-author small { color: var(--faint); font-size: 10px; }
 .search-hit mark { border-radius: 3px; background: var(--warm-soft); color: var(--text); }
 .search-hit time { display: block; margin-top: 4px; color: var(--faint); font-size: 10px; }
 .search-load-more { margin-top: 12px; }
@@ -124,7 +126,9 @@ textarea { resize: vertical; }
 .comment header { display: flex; align-items: center; gap: 10px; border-radius: 12px; padding: 6px 8px; transition: background .14s; }
 .comment header:hover { background: var(--surface-soft); }
 .comment-meta { display: flex; min-width: 0; flex: 1; align-items: baseline; gap: 8px; }
-.comment-meta strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comment-identity { display: flex; min-width: 0; align-items: baseline; gap: 7px; }
+.comment-identity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comment-identity small { overflow: hidden; color: var(--faint); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .comment header time { color: var(--faint); font-size: 11px; white-space: nowrap; }
 .comment-actions { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 3px; margin-left: auto; }
 .action-icon { display: inline-flex; min-width: 29px; height: 29px; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: 8px; background: transparent; color: var(--faint); padding: 0 7px; cursor: pointer; font-size: 13px; font-weight: 750; }
@@ -211,6 +215,7 @@ textarea { resize: vertical; }
   .captcha-field img { width: 100%; height: auto; max-height: 90px; object-fit: contain; }
   .comment header { align-items: flex-start; }
   .comment-meta { align-items: flex-start; flex-direction: column; gap: 1px; }
+  .comment-identity { align-items: flex-start; flex-direction: column; gap: 0; }
   .comment-actions { gap: 0; }
   .reply-label { display: none; }
   .votes { margin-left: 1px; padding-left: 5px; }

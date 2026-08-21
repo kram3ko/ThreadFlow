@@ -10,8 +10,17 @@ INDEX_MAPPING = {
     "mappings": {
         "properties": {
             "text": {"type": "text"},
-            "username": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
-            "email": {"type": "keyword"},
+            "username": {
+                "type": "text",
+                "fields": {
+                    "keyword": {"type": "keyword"},
+                    "contains": {"type": "wildcard"},
+                },
+            },
+            "email": {
+                "type": "keyword",
+                "fields": {"contains": {"type": "wildcard"}},
+            },
             "created_at": {"type": "date"},
             "root_id": {"type": "keyword"},
         }

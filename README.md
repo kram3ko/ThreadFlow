@@ -36,7 +36,7 @@ The release candidate implements:
 - Elasticsearch fuzzy full-text search, highlighting, date/author filters and PostgreSQL fallback;
 - bulk Elasticsearch index rebuild tooling with PostgreSQL as the source of truth;
 - comment up/down voting with per-identity deduplication and live `comment.voted` updates;
-- prefix-aware paginated search with author/date filters, sorting and jump-to-comment;
+- substring-aware paginated author/email search with date filters, sorting and jump-to-comment;
 - sign in with either a username or an email address;
 - inline attach control and UTF-8-safe attachment delivery for non-ASCII file names;
 - server-rendered sanitized comment preview with a compact formatting toolbar;

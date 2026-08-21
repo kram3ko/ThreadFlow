@@ -26,6 +26,15 @@ async function installCaptchaPool(page: Page): Promise<() => CaptchaCredential> 
   return () => current;
 }
 
+function acceptNextPrompt(page: Page, value: string): Promise<void> {
+  return new Promise((resolve) => {
+    page.once("dialog", async (dialog) => {
+      await dialog.accept(value);
+      resolve();
+    });
+  });
+}
+
 test("registration, authentication, comments, reply, image and search", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("threadflow-locale", "en"));
   const captcha = await installCaptchaPool(page);
@@ -34,6 +43,7 @@ test("registration, authentication, comments, reply, image and search", async ({
   const email = `e2e-${suffix}@example.test`;
   const password = "G7!vQ2#nL9@r";
   const guestName = `GuestUI${suffix}`;
+  const guestEmail = `guest-${suffix}@example.test`;
   const guestRootText = `Guest root ${suffix}`;
   const guestReplyText = `Guest reply ${suffix}`;
   const rootText = `E2E searchable root ${suffix}`;
@@ -53,8 +63,20 @@ test("registration, authentication, comments, reply, image and search", async ({
   await page.getByRole("button", { name: /Join the discussion/ }).click();
   const guestForm = page.locator(".composer-shell form");
   await guestForm.getByLabel("Username").fill(guestName);
-  await guestForm.getByLabel("Email").fill(`guest-${suffix}@example.test`);
-  await guestForm.locator("textarea").fill(guestRootText);
+  await guestForm.getByLabel("Email").fill(guestEmail);
+  const guestEditor = guestForm.locator("textarea");
+  await guestEditor.fill("Bilbo");
+  await guestEditor.selectText();
+  const namedLinkPrompt = acceptNextPrompt(page, "https://google.ru");
+  await guestForm.getByRole("button", { name: "Link" }).click();
+  await namedLinkPrompt;
+  await expect(guestEditor).toHaveValue('<a href="https://google.ru">Bilbo</a>');
+  await guestEditor.fill("");
+  const bareLinkPrompt = acceptNextPrompt(page, "https://www.ru");
+  await guestForm.getByRole("button", { name: "Link" }).click();
+  await bareLinkPrompt;
+  await expect(guestEditor).toHaveValue('<a href="https://www.ru">https://www.ru</a>');
+  await guestEditor.fill(guestRootText);
   await guestForm.getByRole("button", { name: "Preview" }).click();
   await expect(guestForm.locator(".comment-preview")).toContainText(guestRootText);
   await guestForm.getByRole("button", { name: "Write" }).click();
@@ -66,6 +88,7 @@ test("registration, authentication, comments, reply, image and search", async ({
 
   const guestRoot = page.locator("article.comment").filter({ hasText: guestRootText });
   await expect(guestRoot).toBeVisible();
+  await expect(guestRoot.getByText(guestEmail, { exact: true })).toBeVisible();
   await guestRoot.getByRole("button", { name: "Reply" }).click();
   const guestReplyForm = guestRoot.locator("form.inline-reply-form");
   await guestReplyForm.getByLabel("Username").fill(`${guestName}Reply`);
@@ -107,6 +130,7 @@ test("registration, authentication, comments, reply, image and search", async ({
   await page.getByRole("button", { name: "Send comment" }).click();
   const root = page.locator("article.comment").filter({ hasText: rootText });
   await expect(root).toBeVisible();
+  await expect(root.getByText(email, { exact: true }).first()).toBeVisible();
   await expect(root.getByRole("img", { name: "pixel.png" })).toBeVisible();
   const upvote = root.getByRole("button", { name: "Upvote" }).first();
   await upvote.click();
@@ -128,7 +152,7 @@ test("registration, authentication, comments, reply, image and search", async ({
 
   await page.getByPlaceholder("Search comments and authors…").fill(username);
   await page.getByText("Filters", { exact: true }).click();
-  await page.getByLabel("Author", { exact: true }).fill(username);
+  await page.getByLabel("Author", { exact: true }).fill(`${suffix}@example`);
   await page.locator(".search-filters select").first().selectOption("date");
   const searchResult = page.locator(".search-hit").filter({ hasText: username });
   await expect

@@ -51,25 +51,35 @@ function clearAttachment() {
   if (fileInput.value) fileInput.value.value = "";
 }
 
+function wrapRange(start: number, end: number, tag: string, attributes = "", fallbackText = "") {
+  const el = commentInput.value;
+  if (!el) return;
+  const open = attributes ? `<${tag} ${attributes}>` : `<${tag}>`;
+  const close = `</${tag}>`;
+  const selectedText = draft.text.slice(start, end);
+  const content = selectedText || fallbackText;
+  draft.text = draft.text.slice(0, start) + open + content + close + draft.text.slice(end);
+  void nextTick(() => {
+    el.focus();
+    const caret = start + open.length;
+    el.setSelectionRange(caret, caret + content.length);
+  });
+}
+
 function wrap(tag: string, attributes = "") {
+  const el = commentInput.value;
+  if (!el) return;
+  wrapRange(el.selectionStart, el.selectionEnd, tag, attributes);
+}
+
+function insertLink() {
   const el = commentInput.value;
   if (!el) return;
   const start = el.selectionStart;
   const end = el.selectionEnd;
-  const open = attributes ? `<${tag} ${attributes}>` : `<${tag}>`;
-  const close = `</${tag}>`;
-  draft.text = draft.text.slice(0, start) + open + draft.text.slice(start, end) + close + draft.text.slice(end);
-  void nextTick(() => {
-    el.focus();
-    const caret = start + open.length;
-    el.setSelectionRange(caret, caret + (end - start));
-  });
-}
-
-function insertLink() {
   const url = window.prompt(t("linkUrl"), "https://");
   if (!url) return;
-  wrap("a", `href="${url.replaceAll('"', "%22")}"`);
+  wrapRange(start, end, "a", `href="${url.replaceAll('"', "%22")}"`, url);
 }
 
 async function togglePreview() {
@@ -158,10 +168,10 @@ onMounted(() => {
         </div>
         <div v-show="!previewing" class="editor-surface">
           <div class="editor-toolbar" role="group" :aria-label="t('formatting')">
-            <button type="button" :title="t('bold')" @click="wrap('strong')"><strong>B</strong></button>
-            <button type="button" :title="t('italic')" @click="wrap('i')"><em>i</em></button>
-            <button type="button" :title="t('code')" @click="wrap('code')">&lt;/&gt;</button>
-            <button type="button" :title="t('link')" @click="insertLink">↗</button>
+            <button type="button" :title="t('bold')" :aria-label="t('bold')" @click="wrap('strong')"><strong>B</strong></button>
+            <button type="button" :title="t('italic')" :aria-label="t('italic')" @click="wrap('i')"><em>i</em></button>
+            <button type="button" :title="t('code')" :aria-label="t('code')" @click="wrap('code')">&lt;/&gt;</button>
+            <button type="button" :title="t('link')" :aria-label="t('link')" @click="insertLink">↗</button>
           </div>
           <textarea ref="commentInput" v-model="draft.text" required rows="5" :placeholder="t('commentPlaceholder')" />
           <small class="character-count">{{ t("characters", { count: draft.text.length }) }}</small>

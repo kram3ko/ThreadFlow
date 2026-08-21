@@ -27,6 +27,11 @@ def _safe_highlights(values: list[str]) -> list[str]:
     return [re.sub(r"</?em>", "", value) for value in values]
 
 
+def _contains_pattern(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace("*", "\\*").replace("?", "\\?")
+    return f"*{escaped}*"
+
+
 def _postgres_search(
     *,
     query: str,
@@ -116,7 +121,32 @@ def search_comments(
             }
         )
     if author:
-        must.append({"multi_match": {"query": author, "fields": ["username", "email"]}})
+        pattern = _contains_pattern(author)
+        must.append(
+            {
+                "bool": {
+                    "minimum_should_match": 1,
+                    "should": [
+                        {
+                            "wildcard": {
+                                "username.contains": {
+                                    "value": pattern,
+                                    "case_insensitive": True,
+                                }
+                            }
+                        },
+                        {
+                            "wildcard": {
+                                "email.contains": {
+                                    "value": pattern,
+                                    "case_insensitive": True,
+                                }
+                            }
+                        },
+                    ],
+                }
+            }
+        )
     date_range = {
         key: value.isoformat() for key, value in (("gte", date_from), ("lte", date_to)) if value
     }

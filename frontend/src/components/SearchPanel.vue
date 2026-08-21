@@ -225,7 +225,10 @@ onBeforeUnmount(() => {
     <ul v-if="results.length" class="search-results">
       <li v-for="result in results" :key="result.id">
         <button type="button" class="search-hit" @click="emit('select', result.id)">
-          <strong>{{ result.author_name }}</strong> —
+          <span class="search-author">
+            <strong>{{ result.author_name }}</strong>
+            <small>{{ result.author_email }}</small>
+          </span>
           <template v-for="(part, index) in highlightParts(result.highlights.join(' … '))" :key="index">
             <mark v-if="part.match">{{ part.text }}</mark><template v-else>{{ part.text }}</template>
           </template>
