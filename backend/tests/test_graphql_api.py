@@ -22,7 +22,7 @@ def _root(name: str) -> Comment:
     return comment
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_graphql_returns_multiple_comment_branches():
     first = _root("First")
     second = _root("Second")
