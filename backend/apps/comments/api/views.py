@@ -1,12 +1,15 @@
 from collections import defaultdict
 from typing import cast
 
+from django.conf import settings
+from django.core.cache import cache
 from django.db.models import Exists, OuterRef, Prefetch, QuerySet
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import BaseThrottle
 
 from apps.attachments.models import Attachment, AttachmentPurpose
 from apps.comments.api.docs import document_comment_viewset
@@ -14,12 +17,16 @@ from apps.comments.api.pagination import CommentCursorPagination
 from apps.comments.api.serializers import (
     CommentCreateSerializer,
     CommentSerializer,
+    PreviewSerializer,
     VoteSerializer,
 )
+from apps.comments.cache import response_cache_key
+from apps.comments.html import sanitize_comment_html
 from apps.comments.models import Comment
-from apps.comments.rate_limit import CommentRateThrottle
+from apps.comments.rate_limit import CommentRateThrottle, VoteRateThrottle
 from apps.comments.realtime.publisher import publish_comment_voted
 from apps.comments.voting import apply_vote, voter_identity
+from apps.observability.metrics import COMMENT_VOTES
 
 
 def serialize_tree(roots, descendants):
@@ -64,12 +71,18 @@ class CommentViewSet(
     lookup_value_converter = "uuid"
     queryset = Comment.objects.all()
 
-    def get_throttles(self) -> list[CommentRateThrottle]:
-        if self.action not in {"create", "replies"}:
-            return []
-        return [CommentRateThrottle()]
+    def get_throttles(self) -> list[BaseThrottle]:
+        if self.action in {"create", "replies"}:
+            return [CommentRateThrottle()]
+        if self.action == "vote":
+            return [VoteRateThrottle()]
+        return []
 
     def list(self, request, *args, **kwargs):
+        cache_key = response_cache_key(request, scope="list")
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
         roots: QuerySet[Comment] = with_reply_marker(
             with_related_files(self.get_queryset().filter(parent__isnull=True))
         )
@@ -86,13 +99,22 @@ class CommentViewSet(
                 )
             )
         )
-        return self.get_paginated_response(serialize_tree(page, descendants))
+        response = self.get_paginated_response(serialize_tree(page, descendants))
+        cache.set(cache_key, response.data, timeout=settings.POPULAR_PAGE_CACHE_TTL_SECONDS)
+        return response
 
     def create(self, request, *args, **kwargs):
         serializer = CommentCreateSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         comment = serializer.save()
         return Response(CommentSerializer(comment).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="preview")
+    def preview(self, request, *args, **kwargs):
+        serializer = PreviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        html, _ = sanitize_comment_html(serializer.validated_data["text"])
+        return Response({"html": html})
 
     @action(detail=True, methods=["post"], url_path="vote")
     def vote(self, request, *args, **kwargs):
@@ -105,9 +127,14 @@ class CommentViewSet(
             value=serializer.validated_data["value"],
         )
         publish_comment_voted(str(comment.id), score)
+        COMMENT_VOTES.inc()
         return Response({"id": str(comment.id), "score": score})
 
     def retrieve(self, request, *args, **kwargs):
+        cache_key = response_cache_key(request, scope=f"branch:{kwargs['pk']}")
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
         comment = get_object_or_404(
             with_reply_marker(with_related_files(self.get_queryset())),
             id=kwargs["pk"],
@@ -123,7 +150,9 @@ class CommentViewSet(
         by_id = {item.id: item for item in branch}
         root = by_id[root_id]
         descendants = [item for item in branch if item.parent_id is not None]
-        return Response(serialize_tree([root], descendants)[0])
+        data = serialize_tree([root], descendants)[0]
+        cache.set(cache_key, data, timeout=settings.POPULAR_PAGE_CACHE_TTL_SECONDS)
+        return Response(data)
 
     @action(detail=True, methods=["post"], url_path="replies")
     def replies(self, request, *args, **kwargs):

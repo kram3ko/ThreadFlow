@@ -1,0 +1,72 @@
+erDiagram
+    accounts_user ||--o{ comments_comment : "authors (nullable)"
+    accounts_user ||--o{ attachments_attachment : "owns avatar (nullable)"
+    comments_comment ||--o{ comments_comment : "parent_id"
+    comments_comment ||--o{ comments_comment : "root_id"
+    comments_comment ||--o{ comments_commentvote : "receives"
+    comments_comment ||--o{ attachments_attachment : "carries (nullable)"
+
+    accounts_user {
+        uuid id PK
+        string username UK
+        string email UK
+        boolean is_active
+        datetime created_at
+    }
+
+    comments_comment {
+        uuid id PK
+        uuid user_id FK "null for guests"
+        uuid parent_id FK "direct parent"
+        uuid root_id FK "branch root"
+        string author_name
+        string author_email
+        string homepage
+        text html_text "sanitized"
+        text search_text "plain text"
+        int depth
+        int score "denormalized votes"
+        datetime created_at
+        datetime updated_at
+    }
+
+    comments_commentvote {
+        bigint id PK
+        uuid comment_id FK
+        string identity "user pk or guest ip"
+        smallint value "+1 or -1"
+        datetime created_at
+        datetime updated_at
+    }
+
+    attachments_attachment {
+        uuid id PK
+        uuid comment_id FK "null until claimed"
+        uuid owner_id FK "null for guests"
+        string purpose "comment or avatar"
+        string kind "image or text"
+        string original_name
+        string file "storage key"
+        string content_type
+        int size
+        int width
+        int height
+        datetime created_at
+    }
+
+    events_outboxevent {
+        uuid id PK
+        string event_type
+        uuid aggregate_id "comment id"
+        jsonb payload
+        datetime created_at
+        datetime published_at
+        int attempts
+    }
+
+    events_processedevent {
+        bigint id PK
+        uuid event_id "outbox event id"
+        string consumer_name
+        datetime processed_at
+    }

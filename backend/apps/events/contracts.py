@@ -9,8 +9,6 @@ import orjson
 
 class EventType(StrEnum):
     COMMENT_CREATED = "comments.created"
-    COMMENT_UPDATED = "comments.updated"
-    ATTACHMENT_UPLOADED = "attachments.uploaded"
     SEARCH_INDEXED = "search.index"
 
 

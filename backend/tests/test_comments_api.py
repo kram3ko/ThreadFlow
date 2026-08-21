@@ -1,5 +1,6 @@
 import pytest
 from apps.captcha.services import issue_challenge
+from apps.comments.cache import cache_version, invalidate_comment_cache
 from rest_framework.test import APIClient
 
 
@@ -74,7 +75,7 @@ def test_initial_text_storage_is_safe(api_client):
     assert response.status_code == 201
     assert (
         response.json()["html_text"]
-        == '<strong>Safe</strong><a rel="nofollow noopener noreferrer">link</a>'
+        == '<strong>Safe</strong><a target="_blank" rel="nofollow noopener noreferrer">link</a>'
     )
     assert response.json()["text"] == "Safelink"
 
@@ -162,3 +163,29 @@ def test_deep_branches_are_truncated_with_marker(api_client):
     assert depth_two["depth"] == 2
     assert depth_two["replies"] == []
     assert depth_two["has_more_replies"] is True
+
+
+@pytest.mark.django_db
+def test_comment_list_response_is_cached(api_client, django_assert_num_queries):
+    created = api_client.post(
+        "/api/comments",
+        comment_payload(text="Cached root"),
+        format="json",
+    )
+    assert created.status_code == 201
+    first = api_client.get("/api/comments")
+    assert first.status_code == 200
+
+    with django_assert_num_queries(0):
+        second = api_client.get("/api/comments")
+
+    assert second.json() == first.json()
+
+
+def test_comment_cache_invalidation_advances_namespace():
+    assert cache_version() == 1
+
+    invalidate_comment_cache()
+    invalidate_comment_cache()
+
+    assert cache_version() == 3

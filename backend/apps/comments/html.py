@@ -49,6 +49,11 @@ class _TextExtractor(HTMLParser):
 
 
 def sanitize_comment_html(value: str) -> tuple[str, str]:
+    """Validate and sanitize comment HTML, returning (html, plain search text).
+
+    Links are opened in a new tab; nh3 normalizes anchors to "<a " and sets a
+    rel that blocks reverse-tabnabbing, so injecting target is safe.
+    """
     _AllowedTagValidator().validate(value)
     sanitized = nh3.clean(
         value,
@@ -58,6 +63,7 @@ def sanitize_comment_html(value: str) -> tuple[str, str]:
         url_schemes=ALLOWED_URL_SCHEMES,
         link_rel="nofollow noopener noreferrer",
     )
+    sanitized = sanitized.replace("<a ", '<a target="_blank" ')
     extractor = _TextExtractor()
     extractor.feed(sanitized)
     search_text = html.unescape("".join(extractor.parts)).strip()

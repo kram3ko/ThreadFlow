@@ -41,3 +41,10 @@ class AttachmentSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         path = f"/api/attachments/{obj.id}/content"
         return request.build_absolute_uri(path) if request else path
+
+
+class AttachmentUploadResultSerializer(AttachmentSerializer):
+    claim_token = serializers.CharField()
+
+    class Meta(AttachmentSerializer.Meta):
+        fields = (*AttachmentSerializer.Meta.fields, "claim_token")

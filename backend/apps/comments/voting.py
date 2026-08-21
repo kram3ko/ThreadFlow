@@ -3,6 +3,7 @@ from django.db.models import F
 from rest_framework.request import Request
 from rest_framework.throttling import BaseThrottle
 
+from apps.comments.cache import invalidate_comment_cache
 from apps.comments.models import Comment, CommentVote
 
 
@@ -19,6 +20,7 @@ def apply_vote(*, comment: Comment, identity: str, value: int) -> int:
     `value` is 1, -1 or 0; zero clears an existing vote. Only the delta against
     the previous vote is applied, so re-voting never double counts.
     """
+    locked_comment = Comment.objects.select_for_update().get(id=comment.id)
     existing = (
         CommentVote.objects.select_for_update().filter(comment=comment, identity=identity).first()
     )
@@ -35,6 +37,7 @@ def apply_vote(*, comment: Comment, identity: str, value: int) -> int:
 
     delta = value - previous
     if delta:
-        Comment.objects.filter(id=comment.id).update(score=F("score") + delta)
-    comment.refresh_from_db(fields=["score"])
-    return comment.score
+        Comment.objects.filter(id=locked_comment.id).update(score=F("score") + delta)
+    locked_comment.refresh_from_db(fields=["score"])
+    transaction.on_commit(invalidate_comment_cache)
+    return locked_comment.score

@@ -23,6 +23,7 @@ def test_openapi_schema_documents_current_routes(api_client):
         "/api/attachments/{id}/content",
         "/api/captcha",
         "/api/comments",
+        "/api/comments/preview",
         "/api/comments/{id}",
         "/api/comments/{id}/replies",
         "/api/comments/{id}/vote",
@@ -32,6 +33,22 @@ def test_openapi_schema_documents_current_routes(api_client):
     assert set(paths["/api/comments"]) == {"get", "post"}
     assert set(paths["/api/comments/{id}"]) == {"get"}
     assert set(paths["/api/comments/{id}/replies"]) == {"post"}
+
+    schemas = response.json()["components"]["schemas"]
+    vote = paths["/api/comments/{id}/vote"]["post"]
+    assert vote["requestBody"]["content"]["application/json"]["schema"]["$ref"].endswith("/Vote")
+    assert vote["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "/VoteResult"
+    )
+    search = paths["/api/search"]["get"]
+    assert search["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "/SearchResponse"
+    )
+    upload = paths["/api/attachments"]["post"]
+    assert upload["responses"]["201"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "/AttachmentUploadResult"
+    )
+    assert "claim_token" in schemas["AttachmentUploadResult"]["properties"]
 
 
 def test_api_documentation_pages_are_available(api_client):

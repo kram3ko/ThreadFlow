@@ -1,45 +1,48 @@
 # ThreadFlow
 
-ThreadFlow is a Vue and Django SPA for scalable threaded comments. PostgreSQL is the source of truth; the application is delivered in vertical milestones so the synchronous comment path stays usable while asynchronous infrastructure is added.
+ThreadFlow is a scalable Vue and Django SPA for threaded comments. PostgreSQL is the source of truth, while Kafka-driven projections provide live updates and full-text search without coupling them to the comment write path.
 
-## Milestone status
+## Implementation status
 
-The first event-driven milestone is implemented:
+The release candidate implements:
 
-- guest root comments and replies;
-- UUID users and comments;
-- `parent_id`, `root_id` and `depth` tree representation;
-- cursor pagination over 25 root comments;
-- root sorting by date, author name or email in both directions;
-- bounded tree responses without N+1 queries;
-- Vue comment form, list and recursive reply UI;
-- PostgreSQL migrations, unified API errors and health check;
-- Docker images for Django, Vue and Nginx;
-- provisioned PostgreSQL 17 and Redis Server 8.10;
-- backend API tests, Ruff and Pyright configuration.
-- JWT registration, login, refresh, logout and current-user flows;
-- httpOnly authentication cookies with CSRF protection and refresh rotation;
-- Pinia authentication state without JavaScript-accessible JWTs;
-- automated backend/frontend quality gates in pre-commit and GitHub Actions.
-- Redis-backed CAPTCHA required for every root and reply;
-- Redis-backed write throttling for comment creation;
-- validated and sanitized comment HTML limited to safe formatting tags.
-- typed WebSocket commands and live `comment.created` delivery through Redis;
-- automatic reconnect, REST resynchronization and REST write fallback;
-- compact modal authentication and deterministic guest avatars;
-- persisted `Auto`, light and dark color themes.
-- private MinIO/S3-compatible image and TXT attachments with content-based MIME checks;
-- proportional 320×240 image resizing, safe TXT delivery and optional account avatars;
-- transactional PostgreSQL outbox with acknowledged Kafka publication;
-- independent, idempotent search and WebSocket consumer groups, retry and DLQ topics;
-- Elasticsearch fuzzy full-text search, highlighting, date/author filters and PostgreSQL fallback;
-- complete index rebuild tooling with PostgreSQL as the source of truth.
-- comment up/down voting with per-identity deduplication and live `comment.voted` updates;
-- prefix-aware search with debounced type-ahead, result counts and jump-to-comment;
-- sign in with either a username or an email address;
-- inline attach control and UTF-8-safe attachment delivery for non-ASCII file names.
+**Comments and accounts**
 
-GraphQL and Prometheus remain locked dependencies for later milestones. Redis serves CAPTCHA, comment rate limiting, the Channels layer and the outbox publisher lock; page caching and refresh-token revocation remain later work.
+- guest and registered-user roots and replies with UUID identifiers;
+- `parent_id`, `root_id` and `depth` tree representation with bounded, N+1-safe branch loading;
+- cursor pagination over 25 roots, lazy branch expansion and sorting by date, name or email;
+- JWT registration, username/email login, refresh rotation and logout through httpOnly cookies with CSRF protection;
+- Redis-backed CAPTCHA on every comment, write throttling and cached popular pages;
+- per-identity up/down voting with live score updates.
+
+**Content and interface**
+
+- responsive Vue 3 interface with Pinia, modal authentication and focused inline replies;
+- live comment and vote delivery with reconnect and REST resynchronization;
+- English, Ukrainian and Russian locales plus automatic, light and dark themes;
+- safe HTML preview limited to `<a>`, `<code>`, `<i>` and `<strong>`;
+- a formatting toolbar that wraps selected link text or uses the URL as its visible label;
+- private JPG, PNG, GIF and TXT attachments, proportional 320×240 image resizing and optional account avatars;
+- paginated fuzzy search with highlighting, date filters, case-insensitive name/email substrings and jump-to-comment;
+- visible author email snapshots in comment metadata and search results.
+
+**Data and event pipeline**
+
+- PostgreSQL as the authoritative store and Redis only for ephemeral state and coordination;
+- a transactional outbox, acknowledged Kafka publication, idempotent consumers, retry topics and a DLQ;
+- an Elasticsearch projection that can be rebuilt from PostgreSQL and has a PostgreSQL fallback;
+- read-only GraphQL trees with request-scoped batching and query limits;
+- Prometheus metrics for HTTP, comments, votes, search and event processing;
+- private MinIO storage locally with the same adapter supporting AWS S3.
+
+**Delivery and verification**
+
+- one-command Docker Compose startup for the application and supporting services;
+- generated OpenAPI documentation, unified API errors and health checks;
+- Ruff, Pyright, pytest, Vitest, Playwright and dependency-audit quality gates;
+- k6 API/WebSocket profiles and seed tooling verified with 1,000,000 comments and 10,000 users.
+
+Redis serves CAPTCHA, write rate limiting, popular-page caching, the Channels layer and the owner-checked outbox publisher lease.
 
 ## Architecture
 
@@ -59,7 +62,7 @@ flowchart LR
     Kafka --> WebSocket
 ```
 
-Command paths are `Browser → Nginx → REST/WebSocket → Django → PostgreSQL`. Committed domain events travel through the outbox and Kafka; separate consumers update Elasticsearch and fan live events through Channels. Uploaded bytes stay in private MinIO/S3-compatible storage.
+Request paths are `Browser → Nginx → REST/GraphQL/WebSocket → Django → PostgreSQL`. Committed domain events travel through the outbox and Kafka; separate consumers update Elasticsearch and fan live events through Channels. Uploaded bytes stay in private MinIO/S3-compatible storage.
 
 ## Technology choices
 
@@ -73,17 +76,21 @@ Command paths are `Browser → Nginx → REST/WebSocket → Django → PostgreSQ
 - Kafka 4.3 provides the durable event log; consumer groups distribute each projection independently.
 - Elasticsearch 9.4 provides the rebuildable search projection and PostgreSQL provides fallback reads.
 - MinIO provides the local private S3-compatible object store; AWS S3 can use the same storage adapter.
-- Nginx exposes one public endpoint and routes `/api/` to Django.
+- Prometheus scrapes the web process and each background consumer independently.
+- Strawberry GraphQL exposes selection-based, batched read access without duplicating commands.
+- Nginx exposes one public endpoint and routes `/api/`, `/graphql` and `/ws/` to Django.
 
 ## Repository layout
 
 ```text
 backend/          Django project, applications, migrations and tests
 frontend/         Vue SPA
-docker/           Backend, frontend and Nginx container definitions
+docker/           Application, Prometheus, Playwright and k6 images/configuration
 docs/api/         Human-readable REST contracts and usage notes
+docs/architecture/ Database and event-flow diagrams
 docs/realtime/    WebSocket operations, event registry and delivery semantics
-load-tests/       k6 scenarios added after search and WebSocket implementation
+docs/testing/     Measured load-test results
+load-tests/       k6 API and WebSocket profiles and preparation guide
 docker-compose.yml
 pyproject.toml
 uv.lock
@@ -98,11 +105,50 @@ cp .env.example .env
 docker compose --env-file .env up --build
 ```
 
-Replace every `change-me` value before exposing the application outside a local machine. Open `http://localhost:8080`. Startup applies migrations and optionally creates the demo account configured by `DEMO_USER_*`; guest comments do not require authentication.
+Add `-d` to keep the stack in the background. The `.env` file is required and is not committed (it is gitignored), so this copy step is mandatory: `.env.example` is the tracked template and Compose reads the resulting `.env` from the project directory. The defaults run locally as-is; replace every `change-me` secret before exposing the application outside a local machine.
 
-Startup also creates Kafka topics, the MinIO bucket and the Elasticsearch index on demand. Stop the stack without deleting persistent volumes:
+The single Compose command builds the SPA and API, waits for PostgreSQL, Redis, Kafka, Elasticsearch and MinIO, applies migrations, creates Kafka topics and object-storage resources, rebuilds the search index, creates the optional demo account, and starts all consumers plus Prometheus.
 
-The MinIO API and console bind to loopback ports `9100` and `9101` by default; application containers use the private `minio:9000` address.
+The template creates the local demonstration account `demo` / `demo-password`. These credentials are intentionally local-only and must be changed or disabled before exposing the stack.
+
+### Local service map
+
+| What | URL or access | What to inspect |
+| --- | --- | --- |
+| ThreadFlow SPA | `http://localhost:8080` | Comments, auth, themes, live replies, files and search |
+| Swagger UI | `http://localhost:8080/api/docs` | Interactive REST contract |
+| ReDoc | `http://localhost:8080/api/redoc` | Readable REST reference |
+| OpenAPI | `http://localhost:8080/api/schema` | Generated machine-readable schema |
+| GraphQL | `http://localhost:8080/graphql` | Read-only branch queries; no browser IDE is exposed |
+| Prometheus | `http://localhost:9090` | Metrics queries; `/targets` shows the API and three consumers |
+| MinIO console | `http://localhost:9101` | Private attachment bucket; use `MINIO_ROOT_*` credentials |
+| MinIO API | `http://localhost:9100` | Local S3-compatible endpoint |
+| PostgreSQL | `localhost:5433` | Source-of-truth database using `POSTGRES_*` credentials |
+| Redis | `localhost:6380` | Ephemeral cache/channel state using `REDIS_PASSWORD` |
+
+Kafka and Elasticsearch are intentionally private to the Compose network. Inspect them without exposing extra ports:
+
+```bash
+docker compose --env-file .env exec kafka \
+  /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+docker compose --env-file .env exec elasticsearch \
+  curl -s 'http://localhost:9200/threadflow-comments-v1/_search?size=3&pretty'
+```
+
+### What to try
+
+Open the SPA and post as a guest or use `demo` / `demo-password`. CAPTCHA is required for every comment. Language and light/dark/automatic theme controls are in the header and persist in the browser. Registration and sign-in live in the top-right dialog. The compact invitation opens the root editor; `Reply` opens a focused form directly below the selected comment. Submitted roots, replies and votes appear live through WebSocket events. The editor supports preview and safe formatting: select text before pressing the link button to use it as the label, or press the button without a selection to insert the URL as both address and label. JPG/PNG/GIF images and UTF-8 TXT files can be attached and previewed safely.
+
+Search demonstrates the Elasticsearch projection and transparently falls back to PostgreSQL when Elasticsearch is unavailable. A compact GraphQL read example is:
+
+```bash
+curl -G http://localhost:8080/graphql \
+  --data-urlencode 'query={ rootComments(first: 3, depth: 2) { id author { name } replies { id text } } }'
+```
+
+In Prometheus, open `/targets` to confirm four healthy scrape targets, then query metrics such as `threadflow_http_requests_total`, `threadflow_comments_created_total`, `threadflow_events_published_total` and `threadflow_events_processed_total`. Kafka topic purposes and delivery guarantees are documented in [`docs/architecture/events.md`](docs/architecture/events.md); GraphQL fields are documented in [`docs/api/graphql.md`](docs/api/graphql.md); the WebSocket command/event registry is in [`docs/realtime/websocket.md`](docs/realtime/websocket.md).
+
+Stop the stack without deleting persistent volumes:
 
 ```bash
 docker compose --env-file .env down
@@ -122,10 +168,12 @@ docker compose --env-file .env down
 | `POSTGRES_*` | PostgreSQL database and connection settings |
 | `REDIS_IMAGE` | Redis Server container version |
 | `REDIS_PASSWORD` | Redis authentication password |
+| `RATE_LIMIT_*` | Comment and vote write limits |
 | `KAFKA_*` | Broker, topic, retry and outbox settings |
 | `ELASTICSEARCH_*` | Search endpoint, index and timeouts |
 | `S3_*`, `MINIO_*` | Private object-storage connection and credentials |
 | `DEMO_USER_*` | Optional local demo-user bootstrap |
+| `PROMETHEUS_*`, `METRICS_PORT` | Metrics image, UI port and consumer exporter port |
 
 ## REST API
 
@@ -152,8 +200,9 @@ Interactive and machine-readable documentation:
 | `POST` | `/api/comments/{id}/replies` | Reply to a comment |
 | `POST` | `/api/comments/{id}/vote` | Up/down vote a comment (`value` is `1`, `-1` or `0`) |
 | `POST` | `/api/attachments` | Validate and upload an attachment or avatar |
-| `GET` | `/api/attachments/{id}/content` | Safely stream stored content |
+| `GET` | `/api/attachments/{id}/content` | Safely serve stored content |
 | `GET` | `/api/search` | Search comments with PostgreSQL fallback |
+| `POST`, `GET` | `/graphql` | Read-only batched comment-tree queries |
 
 Live comment commands and events use `ws://localhost:8080/ws/comments`; `comment.created` and `comment.voted` are pushed to subscribers. An expired or invalid token degrades to a guest connection instead of dropping the socket. See [`docs/realtime/websocket.md`](docs/realtime/websocket.md) for the typed contract and event registry.
 
@@ -220,6 +269,17 @@ npm run build
 npm test
 ```
 
+Backend coverage is enforced at 85%. The current complete suite contains 75 tests and reports 88.03% branch-aware coverage. Browser and load-test commands are documented in [`load-tests/README.md`](load-tests/README.md); measured results are recorded in [`docs/testing/load-test-results.md`](docs/testing/load-test-results.md).
+
+Run the real browser journey against the Compose stack with one-use CAPTCHA credentials:
+
+```bash
+credentials=$(docker compose --env-file .env run --rm backend \
+  python manage.py prepare_load_captchas --count 8 | tail -n 1)
+E2E_CAPTCHAS="$credentials" docker compose --env-file .env --profile e2e \
+  run --rm playwright
+```
+
 ## Data model
 
 Comments use an adjacency list plus denormalized branch metadata:
@@ -235,6 +295,10 @@ Each comment keeps a denormalized `score`; `CommentVote` records one vote per id
 
 `Attachment` stores object metadata while bytes live in MinIO/S3. `OutboxEvent` is written with the aggregate transaction; `ProcessedEvent` is unique per event and consumer. See [`docs/architecture/events.md`](docs/architecture/events.md).
 
+![Database schema](docs/architecture/db-schema.svg)
+
+Mermaid source: [`docs/architecture/db-schema.mmd`](docs/architecture/db-schema.mmd). [`docs/architecture/schema.sql`](docs/architecture/schema.sql) is the authoritative PostgreSQL DDL. [`docs/architecture/schema.mysql.sql`](docs/architecture/schema.mysql.sql) mirrors the domain schema in MySQL 8 syntax for import into MySQL Workbench.
+
 ## Git workflow
 
 - `main` contains reviewed, working milestones.
@@ -243,14 +307,9 @@ Each comment keeps a denormalized `score`; `CommentVote` records one vote per id
 - commits use imperative present-tense subjects.
 - pushing and merging are explicit operations; local work is never pushed automatically.
 
-## Roadmap
+## Remaining delivery work
 
-1. read-only GraphQL with batching and complexity limits.
-2. Prometheus metrics and service-level dashboards.
-3. reply pagination and popular-page caching.
-4. k6 load profiles, million-comment seed data and deployment documentation.
-
-The attachment milestone also adds optional account avatars stored in object storage. Guest comments use locally generated initial avatars so visitor email addresses are never sent to an external avatar service. Final visual polish follows the functional milestones and keeps the comment feed compact, avatar-led and focused on live discussion.
+The repository implementation, automated tests and local release tooling are complete. Public deployment and the demonstration video are intentionally left to the final delivery environment. Guest avatars are generated locally, so visitor email addresses are never sent to an external avatar service.
 
 ## MVP limitations
 
@@ -258,5 +317,5 @@ The attachment milestone also adds optional account avatars stored in object sto
 - refresh-token reuse is not yet tracked server-side;
 - retry backoff blocks the affected consumer partition; a dedicated delayed-retry scheduler is deferred;
 - orphaned pending object cleanup is not scheduled yet;
-- large branches are bounded by response depth, but reply pagination is not implemented yet;
-- production deployment and load-test results are not available yet.
+- large branches are bounded by response depth and expanded lazily rather than returned without a limit;
+- the repository does not include a public deployment URL or demonstration video.

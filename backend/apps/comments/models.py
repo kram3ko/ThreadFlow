@@ -98,6 +98,10 @@ class CommentVote(models.Model):
             models.UniqueConstraint(
                 fields=["comment", "identity"], name="unique_vote_per_identity"
             ),
+            models.CheckConstraint(
+                condition=Q(value__in=[-1, 1]),
+                name="comment_vote_value_valid",
+            ),
         ]
 
     def __str__(self) -> str:

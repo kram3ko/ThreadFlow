@@ -3,11 +3,13 @@ import { reactive, ref, useTemplateRef } from "vue";
 
 import { useAuthStore } from "../stores/auth";
 import { api } from "../api";
+import { useI18n } from "../i18n";
 
 const auth = useAuthStore();
 const mode = ref<"login" | "register">("login");
 const draft = reactive({ username: "", email: "", password: "" });
 const dialog = useTemplateRef<HTMLDialogElement>("auth-dialog");
+const { t } = useI18n();
 
 function open(nextMode: "login" | "register") {
   mode.value = nextMode;
@@ -44,26 +46,26 @@ async function uploadAvatar(event: Event) {
 
 <template>
   <div v-if="auth.user" class="account-actions auth-session">
-    <label class="avatar-picker" title="Change avatar">
+    <label class="avatar-picker" :title="t('changeAvatar')">
       <img v-if="auth.user.avatar_url" class="avatar avatar-image" :src="auth.user.avatar_url" alt="" />
       <span v-else class="avatar" aria-hidden="true">{{ auth.user.username.charAt(0).toUpperCase() }}</span>
       <input type="file" accept="image/jpeg,image/png,image/gif" @change="uploadAvatar" />
     </label>
     <strong>{{ auth.user.username }}</strong>
     <button class="link-button" type="button" :disabled="auth.loading" @click="auth.logout">
-      Sign out
+      {{ t("signOut") }}
     </button>
   </div>
 
   <div v-else class="account-actions">
-    <button class="link-button" type="button" @click="open('login')">Sign in</button>
-    <button class="primary compact" type="button" @click="open('register')">Register</button>
+    <button class="link-button" type="button" @click="open('login')">{{ t("signIn") }}</button>
+    <button class="primary compact" type="button" @click="open('register')">{{ t("register") }}</button>
   </div>
 
   <dialog ref="auth-dialog" class="auth-dialog">
     <div class="dialog-heading">
-      <h2>{{ mode === "login" ? "Welcome back" : "Create account" }}</h2>
-      <button class="dialog-close" type="button" aria-label="Close" @click="close">×</button>
+      <h2>{{ mode === "login" ? t("welcomeBack") : t("createAccount") }}</h2>
+      <button class="dialog-close" type="button" :aria-label="t('close')" @click="close">×</button>
     </div>
     <div class="auth-tabs">
       <button
@@ -71,26 +73,26 @@ async function uploadAvatar(event: Event) {
         :class="{ active: mode === 'login' }"
         @click="mode = 'login'"
       >
-        Sign in
+        {{ t("signIn") }}
       </button>
       <button
         type="button"
         :class="{ active: mode === 'register' }"
         @click="mode = 'register'"
       >
-        Register
+        {{ t("register") }}
       </button>
     </div>
     <form class="auth-form modal-form" @submit.prevent="submit">
       <label>
-        {{ mode === "login" ? "Username or email" : "Username" }}
+        {{ mode === "login" ? t("usernameOrEmail") : t("username") }}
         <input v-model="draft.username" required autocomplete="username" />
       </label>
       <label v-if="mode === 'register'">
-        Email <input v-model="draft.email" required type="email" autocomplete="email" />
+        {{ t("email") }} <input v-model="draft.email" required type="email" autocomplete="email" />
       </label>
       <label>
-        Password
+        {{ t("password") }}
         <input
           v-model="draft.password"
           required
@@ -100,7 +102,7 @@ async function uploadAvatar(event: Event) {
         />
       </label>
       <button class="primary" type="submit" :disabled="auth.loading">
-        {{ auth.loading ? "Please wait…" : mode === "login" ? "Sign in" : "Create account" }}
+        {{ auth.loading ? t("pleaseWait") : mode === "login" ? t("signIn") : t("createAccount") }}
       </button>
     </form>
     <p v-if="auth.error" class="error">{{ auth.error }}</p>

@@ -1,7 +1,11 @@
+from unittest.mock import Mock, patch
+
 import pytest
 from apps.accounts.models import User
 from apps.captcha.services import issue_challenge
 from apps.comments.models import Comment, CommentVote
+from django.db import IntegrityError, transaction
+from redis.exceptions import ConnectionError as RedisConnectionError
 from rest_framework.test import APIClient
 
 CREDENTIALS = "Str0ngPass!234"
@@ -31,6 +35,42 @@ def test_guest_vote_updates_score_and_cannot_double_count():
     assert client.post(url, {"value": -1}, format="json").json()["score"] == -1
     assert client.post(url, {"value": 0}, format="json").json()["score"] == 0
     assert CommentVote.objects.filter(comment=comment).count() == 0
+
+
+@pytest.mark.django_db
+def test_vote_value_is_constrained_in_the_database():
+    comment = _root_comment()
+    with pytest.raises(IntegrityError), transaction.atomic():
+        CommentVote.objects.create(comment=comment, identity="guest:test", value=2)
+
+
+@pytest.mark.django_db
+def test_vote_succeeds_when_realtime_delivery_is_unavailable():
+    comment = _root_comment()
+    unavailable = Mock(side_effect=RedisConnectionError("unavailable"))
+
+    with patch("apps.comments.realtime.publisher.async_to_sync", return_value=unavailable):
+        response = APIClient().post(
+            f"/api/comments/{comment.id}/vote",
+            {"value": 1},
+            format="json",
+        )
+
+    assert response.status_code == 200
+    assert response.json()["score"] == 1
+    comment.refresh_from_db()
+    assert comment.score == 1
+
+
+@pytest.mark.django_db
+def test_vote_endpoint_is_rate_limited(settings):
+    settings.VOTE_RATE_LIMIT_PER_MINUTE = 1
+    comment = _root_comment()
+    client = APIClient()
+    url = f"/api/comments/{comment.id}/vote"
+
+    assert client.post(url, {"value": 1}, format="json").status_code == 200
+    assert client.post(url, {"value": -1}, format="json").status_code == 429
 
 
 @pytest.mark.django_db

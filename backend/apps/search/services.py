@@ -27,6 +27,11 @@ def _safe_highlights(values: list[str]) -> list[str]:
     return [re.sub(r"</?em>", "", value) for value in values]
 
 
+def _contains_pattern(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace("*", "\\*").replace("?", "\\?")
+    return f"*{escaped}*"
+
+
 def _postgres_search(
     *,
     query: str,
@@ -34,7 +39,9 @@ def _postgres_search(
     date_from: datetime | None,
     date_to: datetime | None,
     direction: str,
-) -> list[SearchResult]:
+    limit: int,
+    offset: int,
+) -> tuple[list[SearchResult], int | None]:
     queryset = Comment.objects.all()
     if query:
         queryset = queryset.filter(
@@ -48,7 +55,13 @@ def _postgres_search(
         queryset = queryset.filter(created_at__gte=date_from)
     if date_to:
         queryset = queryset.filter(created_at__lte=date_to)
-    return [
+    page = list(
+        queryset.order_by(
+            "created_at" if direction == "asc" else "-created_at",
+            "id" if direction == "asc" else "-id",
+        )[offset : offset + limit + 1]
+    )
+    results = [
         SearchResult(
             id=str(item.id),
             text=item.search_text,
@@ -58,8 +71,10 @@ def _postgres_search(
             created_at=item.created_at.isoformat(),
             highlights=[item.search_text],
         )
-        for item in queryset.order_by("created_at" if direction == "asc" else "-created_at")[:50]
+        for item in page[:limit]
     ]
+    next_offset = offset + limit if len(page) > limit else None
+    return results, next_offset
 
 
 def search_comments(
@@ -70,7 +85,9 @@ def search_comments(
     date_to: datetime | None = None,
     sort: str = "relevance",
     direction: str = "desc",
-) -> tuple[list[SearchResult], str]:
+    limit: int = 20,
+    offset: int = 0,
+) -> tuple[list[SearchResult], str, int | None]:
     """Search comments in Elasticsearch, falling back to PostgreSQL on failure.
 
     The query combines whole-token matching with typo tolerance and a
@@ -104,7 +121,32 @@ def search_comments(
             }
         )
     if author:
-        must.append({"multi_match": {"query": author, "fields": ["username", "email"]}})
+        pattern = _contains_pattern(author)
+        must.append(
+            {
+                "bool": {
+                    "minimum_should_match": 1,
+                    "should": [
+                        {
+                            "wildcard": {
+                                "username.contains": {
+                                    "value": pattern,
+                                    "case_insensitive": True,
+                                }
+                            }
+                        },
+                        {
+                            "wildcard": {
+                                "email.contains": {
+                                    "value": pattern,
+                                    "case_insensitive": True,
+                                }
+                            }
+                        },
+                    ],
+                }
+            }
+        )
     date_range = {
         key: value.isoformat() for key, value in (("gte", date_from), ("lte", date_to)) if value
     }
@@ -118,21 +160,25 @@ def search_comments(
             else ["_score", {"created_at": direction}]
         ),
         "highlight": {"fields": {"text": {}, "username": {}}},
-        "size": 50,
+        "size": limit + 1,
+        "from_": offset,
     }
     try:
         response = client().search(index=settings.ELASTICSEARCH_INDEX, **body)
     except ApiError, ElasticsearchConnectionError, OSError:
-        fallback = _postgres_search(
+        fallback, next_offset = _postgres_search(
             query=query,
             author=author,
             date_from=date_from,
             date_to=date_to,
             direction=direction,
+            limit=limit,
+            offset=offset,
         )
-        return fallback, "postgresql"
+        return fallback, "postgresql", next_offset
     results = []
-    for hit in response["hits"]["hits"]:
+    hits = response["hits"]["hits"]
+    for hit in hits[:limit]:
         source = hit["_source"]
         highlights = _safe_highlights(hit.get("highlight", {}).get("text", [source["text"]]))
         results.append(
@@ -146,4 +192,5 @@ def search_comments(
                 highlights=highlights,
             )
         )
-    return results, "elasticsearch"
+    next_offset = offset + limit if len(hits) > limit else None
+    return results, "elasticsearch", next_offset

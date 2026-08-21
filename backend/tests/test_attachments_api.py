@@ -3,7 +3,6 @@ import io
 import pytest
 from apps.attachments.models import Attachment
 from apps.captcha.services import issue_challenge
-from apps.events.models import OutboxEvent
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 from rest_framework.test import APIClient
@@ -45,7 +44,6 @@ def test_image_is_resized_and_claimed_by_comment(tmp_path, settings):
     attachment = Attachment.objects.get(id=upload.json()["id"])
     assert str(attachment.comment_id) == response.json()["id"]
     assert response.json()["attachments"][0]["kind"] == "image"
-    assert OutboxEvent.objects.filter(event_type="attachments.uploaded").exists()
 
 
 @pytest.mark.django_db
@@ -57,3 +55,24 @@ def test_executable_upload_is_rejected(tmp_path, settings):
         format="multipart",
     )
     assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_text_content_is_buffered_and_served_with_safe_headers(tmp_path, settings):
+    settings.MEDIA_ROOT = tmp_path
+    client = APIClient()
+    upload = client.post(
+        "/api/attachments",
+        {"file": SimpleUploadedFile("notes.txt", b"Safe preview text")},
+        format="multipart",
+    )
+
+    response = client.get(f"/api/attachments/{upload.json()['id']}/content")
+
+    assert response.status_code == 200
+    assert not response.streaming
+    assert response.content == b"Safe preview text"
+    assert response["Content-Type"] == "text/plain; charset=utf-8"
+    assert response["Content-Disposition"] == 'inline; filename="notes.txt"'
+    assert response["Content-Security-Policy"] == "default-src 'none'"
+    assert response["X-Content-Type-Options"] == "nosniff"

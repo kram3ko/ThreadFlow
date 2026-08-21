@@ -88,6 +88,9 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "backend/config/settings.py" = ["S105"]
 # Assertions are the native pytest API.
 "backend/tests/**/*.py" = ["S101"]
+# Strawberry resolves this self-referential GraphQL type during decoration,
+# before CommentNode is bound in the module namespace.
+"backend/apps/graphql_api/types.py" = ["UP037"]
 # Object persistence spans storage and SQL; any failed second step must compensate the first.
 "backend/apps/attachments/services.py" = ["BLE001"]
 # This is the outer consumer boundary: every handler failure must enter retry or DLQ.
@@ -111,6 +114,6 @@ source = ["backend/apps", "backend/config"]
 omit = ["*/migrations/*", "*/management/commands/*", "*/asgi.py", "*/wsgi.py"]
 
 [tool.coverage.report]
-fail_under = 80
+fail_under = 85
 show_missing = true
 skip_covered = true

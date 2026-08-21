@@ -19,6 +19,7 @@ Swagger and ReDoc assets are bundled locally and served by Nginx from the shared
 - [Comments](comments.md) — tree representation, pagination, sorting and reply behavior.
 - [Attachments](attachments.md) — content validation, claim tokens and safe previews.
 - [Search](search.md) — Elasticsearch query behavior and PostgreSQL fallback.
+- [GraphQL](graphql.md) — read-only batched comment-tree queries and limits.
 - Authentication — added with the JWT milestone.
 - GraphQL — added with the read API milestone.
 - [WebSocket](../realtime/websocket.md) — live operations, events and reconnect behavior.

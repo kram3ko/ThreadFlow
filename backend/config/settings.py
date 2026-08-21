@@ -13,7 +13,10 @@ APP_ENV = os.getenv("APP_ENV", "development")
 if APP_ENV not in {"development", "production"}:
     raise ImproperlyConfigured("APP_ENV must be development or production")
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "local-only-insecure-secret")
+INSECURE_SECRET_DEFAULT = "local-only-insecure-secret"
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", INSECURE_SECRET_DEFAULT)
+if APP_ENV == "production" and SECRET_KEY == INSECURE_SECRET_DEFAULT:
+    raise ImproperlyConfigured("DJANGO_SECRET_KEY must be configured in production")
 DEBUG = os.getenv("DJANGO_DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = [host for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost").split(",") if host]
 CSRF_TRUSTED_ORIGINS = [
@@ -55,11 +58,16 @@ CAPTCHA_TTL_SECONDS = int(os.getenv("CAPTCHA_TTL_SECONDS", "300"))
 CAPTCHA_MAX_ATTEMPTS = int(os.getenv("CAPTCHA_MAX_ATTEMPTS", "3"))
 COMMENT_RATE_LIMIT = os.getenv("RATE_LIMIT_COMMENT_PER_MINUTE", "10")
 COMMENT_RATE_LIMIT_PER_MINUTE = int(COMMENT_RATE_LIMIT.split("/", maxsplit=1)[0])
+VOTE_RATE_LIMIT = os.getenv("RATE_LIMIT_VOTE_PER_MINUTE", "60")
+VOTE_RATE_LIMIT_PER_MINUTE = int(VOTE_RATE_LIMIT.split("/", maxsplit=1)[0])
+POPULAR_PAGE_CACHE_TTL_SECONDS = int(os.getenv("POPULAR_PAGE_CACHE_TTL_SECONDS", "60"))
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 KAFKA_CLIENT_ID = os.getenv("KAFKA_CLIENT_ID", "threadflow")
 KAFKA_CONSUMER_GROUP_PREFIX = os.getenv("KAFKA_CONSUMER_GROUP_PREFIX", "threadflow")
 KAFKA_RETRY_MAX_ATTEMPTS = int(os.getenv("KAFKA_RETRY_MAX_ATTEMPTS", "5"))
 KAFKA_RETRY_BACKOFF_SECONDS = float(os.getenv("KAFKA_RETRY_BACKOFF_SECONDS", "5"))
+# comments_updated and attachments_uploaded are reserved by the task's topic
+# set; they have no active producer or consumer yet.
 KAFKA_TOPICS = {
     "comments_created": os.getenv("KAFKA_TOPIC_COMMENTS_CREATED", "comments.created"),
     "comments_updated": os.getenv("KAFKA_TOPIC_COMMENTS_UPDATED", "comments.updated"),
@@ -70,6 +78,7 @@ KAFKA_TOPICS = {
 }
 OUTBOX_BATCH_SIZE = int(os.getenv("OUTBOX_BATCH_SIZE", "100"))
 OUTBOX_POLL_INTERVAL_SECONDS = float(os.getenv("OUTBOX_POLL_INTERVAL_SECONDS", "1"))
+METRICS_PORT = int(os.getenv("METRICS_PORT", "8001"))
 ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
 ELASTICSEARCH_INDEX = os.getenv("ELASTICSEARCH_INDEX", "threadflow-comments-v1")
 ELASTICSEARCH_REQUEST_TIMEOUT_SECONDS = int(
@@ -90,15 +99,18 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "drf_spectacular_sidecar",
+    "strawberry_django",
     "apps.accounts",
     "apps.captcha",
     "apps.comments",
     "apps.attachments",
     "apps.events",
     "apps.search",
+    "apps.observability",
 ]
 
 MIDDLEWARE = [
+    "apps.observability.middleware.MetricsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "corsheaders.middleware.CorsMiddleware",
